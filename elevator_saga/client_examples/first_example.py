@@ -1,9 +1,23 @@
 #!/usr/bin/env python3
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 
 from elevator_saga.client.base_controller import ElevatorController
 from elevator_saga.client.proxy_models import ProxyElevator, ProxyFloor, ProxyPassenger
 from elevator_saga.core.models import Direction, SimulationEvent
+
+
+def _to_dir_enum(d) -> Optional[Direction]:
+    """将传入的方向（'up'/'down'/Direction）标准化为 Direction 枚举；无法识别则返回 None"""
+    if isinstance(d, Direction):
+        return d
+    if d is None:
+        return None
+    s = str(d).strip().upper()
+    if s.startswith("UP"):
+        return Direction.UP
+    if s.startswith("DOWN"):
+        return Direction.DOWN
+    return None
 
 
 class ElevatorBusExampleController(ElevatorController):
@@ -15,16 +29,16 @@ class ElevatorBusExampleController(ElevatorController):
         # 初始化最大楼层
         self.max_floor = 0
 
-        # ===== 新增：运行期容器（每台电梯的停靠集合 & 全局待接集合） =====
+        # —— 新增：每台电梯独立的停靠集合 & 待接集合 ——
         self.up_stops: Dict[int, Set[int]] = {}
         self.down_stops: Dict[int, Set[int]] = {}
-        # 当没有空闲电梯时，先把呼叫放入全局待接集合，等有电梯路过或空闲再处理
         self.pending_up_floors: Set[int] = set()
         self.pending_down_floors: Set[int] = set()
 
-        # ===== 新增：缓存电梯与楼层 =====
+        # —— 新增：缓存与去重辅助 ——
         self.all_elevators: List[ProxyElevator] = []
         self.all_floors: List[ProxyFloor] = []
+        self.last_target: Dict[int, Optional[int]] = {}  # 记录上一次派给电梯的目标层，避免重复派单
 
     # 初始化电梯和楼层信息
     def on_init(self, elevators: List[ProxyElevator], floors: List[ProxyFloor]) -> None:
@@ -32,20 +46,21 @@ class ElevatorBusExampleController(ElevatorController):
         self.all_floors = floors
         self.max_floor = max(floor.floor for floor in floors)
 
-        # ===== 新增：为每部电梯准备独立的上下行停靠集合 =====
+        # 初始化容器
         for e in elevators:
             self.up_stops[e.id] = set()
             self.down_stops[e.id] = set()
+            self.last_target[e.id] = None
 
-        # （可选）把电梯均匀铺开，减少初始重叠
+        # 均匀铺开（保留上版策略）
         if len(elevators) > 1:
             for i, e in enumerate(elevators):
                 target = round(i * self.max_floor / (len(elevators) - 1))
-                e.go_to_floor(target, immediate=True)
+                self._dispatch_if_new(e, target, immediate=True, label=f"初始分布至 F{target}")
 
     def on_event_execute_start(self, tick: int, events: List[SimulationEvent], elevators: List[ProxyElevator], floors: List[ProxyFloor]) -> None:
         """事件执行前的回调"""
-        pass  # 保持安静，避免冗余输出；需要时可自行打开日志
+        pass
 
     def on_event_execute_end(self, tick: int, events: List[SimulationEvent], elevators: List[ProxyElevator], floors: List[ProxyFloor]) -> None:
         """事件执行后的回调"""
@@ -53,79 +68,95 @@ class ElevatorBusExampleController(ElevatorController):
 
     def on_passenger_call(self, passenger: ProxyPassenger, floor: ProxyFloor, direction: str) -> None:
         """乘客呼叫时的回调"""
-        # 简洁输出：谁、哪层、往哪
         print(f"[呼叫] 乘客{passenger.id} 在 F{floor.floor} 呼叫（{direction}）")
 
-        # ===== 新增：只派给“最近的空闲电梯”；若没有空闲，则登记为待接 =====
+        dir_enum = _to_dir_enum(direction)
         idle_es = [e for e in self.all_elevators if e.is_idle]
+
         if idle_es:
             # 最近空闲电梯
             nearest = min(idle_es, key=lambda e: abs(e.current_floor - floor.floor))
-            if direction == Direction.UP.value:
+            if dir_enum == Direction.UP:
                 self.up_stops[nearest.id].add(floor.floor)
-            else:
+            elif dir_enum == Direction.DOWN:
                 self.down_stops[nearest.id].add(floor.floor)
-            # 若这台电梯当前没有目标，则立刻指派过去
-            if nearest.is_idle:
-                nearest.go_to_floor(floor.floor)
+            else:
+                # 无法识别方向，按就近直接派
+                pass
+
+            # 若最近电梯“当前就站在该层”，不要再派同层命令，直接等停靠事件处理
+            if nearest.current_floor == floor.floor:
+                # 清掉同层标记，防止后续空闲时反复派同层
+                self.up_stops[nearest.id].discard(floor.floor)
+                self.down_stops[nearest.id].discard(floor.floor)
+                return
+
+            if self._dispatch_if_new(nearest, floor.floor, label=f"E{nearest.id} 前往 F{floor.floor}（最近空闲）"):
                 print(f"[派单] E{nearest.id} 前往 F{floor.floor}（最近空闲）")
         else:
-            # 无空闲电梯，登记到全局待接集合，等路过/空闲时吸附
-            if direction == Direction.UP.value:
+            # 无空闲电梯 → 登记待接（大小写已标准化）
+            if dir_enum == Direction.UP:
                 self.pending_up_floors.add(floor.floor)
+            elif dir_enum == Direction.DOWN:
+                self.pending_down_floors.add(floor.floor)
             else:
+                # 方向异常时，先放入两个集合之一都可以；这里选择 down 以保持与日志一致
                 self.pending_down_floors.add(floor.floor)
             print(f"[排队] 暂无空闲电梯，F{floor.floor}（{direction}）加入待接")
 
     def on_elevator_idle(self, elevator: ProxyElevator) -> None:
         """电梯空闲时的回调"""
-        # 简洁输出
         print(f"[空闲] E{elevator.id} 空闲于 F{elevator.current_floor}")
 
-        # ===== 新增：空闲时就近处理本电梯登记的停靠点；没有则尝试消化全局待接；再无则回 0 层 =====
         eid = elevator.id
         cf = elevator.current_floor
 
-        # 合并自身登记的所有停靠点
+        # 自身登记目标
         own_targets = set(self.up_stops[eid]) | set(self.down_stops[eid])
         if own_targets:
             nxt = min(own_targets, key=lambda x: abs(x - cf))
-            elevator.go_to_floor(nxt)
-            print(f"[派单] E{eid} 前往登记点 F{nxt}")
+            # 关键：同层目标直接清理，不派重复指令
+            if nxt == cf:
+                self.up_stops[eid].discard(cf)
+                self.down_stops[eid].discard(cf)
+                return
+            if self._dispatch_if_new(elevator, nxt, label=f"E{eid} 前往登记点 F{nxt}"):
+                print(f"[派单] E{eid} 前往登记点 F{nxt}")
             return
 
-        # 消化全局待接（选择与当前位置最近的）
+        # 消化全局待接
         if self.pending_up_floors or self.pending_down_floors:
             all_pending = list(self.pending_up_floors | self.pending_down_floors)
             nxt = min(all_pending, key=lambda x: abs(x - cf))
-            # 为了后续路过能停，把最近的待接点登记到正确方向集合
-            if nxt >= cf:
+            if nxt == cf:
+                # 站在待接层：清待接并交给停靠事件处理
+                self.pending_up_floors.discard(cf)
+                self.pending_down_floors.discard(cf)
+                return
+            # 将该点记录到对应方向集合，便于“顺路停”
+            if nxt > cf:
                 self.up_stops[eid].add(nxt)
             else:
                 self.down_stops[eid].add(nxt)
-            # 同时从全局待接里移除该点
             self.pending_up_floors.discard(nxt)
             self.pending_down_floors.discard(nxt)
-            elevator.go_to_floor(nxt)
-            print(f"[消化] E{eid} 领取待接点 F{nxt}")
+            if self._dispatch_if_new(elevator, nxt, label=f"E{eid} 领取待接点 F{nxt}"):
+                print(f"[消化] E{eid} 领取待接点 F{nxt}")
             return
 
-        # 无任务：回 0 层（也可改为 self.max_floor // 2 作为中位待命层）
-        if cf != 0:
-            elevator.go_to_floor(0)
+        # 无任务 → 回 0 层（避免反复派同层）
+        if cf != 0 and self._dispatch_if_new(elevator, 0, label=f"E{eid} 返回大厅 F0"):
             print(f"[待命] E{eid} 返回大厅 F0")
 
     def on_elevator_stopped(self, elevator: ProxyElevator, floor: ProxyFloor) -> None:
         """电梯停靠时的回调"""
         print(f"[停靠] E{elevator.id} 到站 F{floor.floor}")
 
-        # ===== 新增：清理本层标记，并选择下一站（优先“同向最近”） =====
         eid = elevator.id
         cf = elevator.current_floor
         self.up_stops[eid].discard(cf)
         self.down_stops[eid].discard(cf)
 
-        # 依据上一刻方向优先择路
         last_dir = elevator.last_tick_direction
         nxt = None
 
@@ -138,30 +169,22 @@ class ElevatorBusExampleController(ElevatorController):
             return max(lower) if lower else None
 
         if last_dir == Direction.UP:
-            nxt = pick_upward()
-            if nxt is None:
-                # 反向兜底
-                nxt = pick_downward()
+            nxt = pick_upward() or pick_downward()
         elif last_dir == Direction.DOWN:
-            nxt = pick_downward()
-            if nxt is None:
-                nxt = pick_upward()
+            nxt = pick_downward() or pick_upward()
         else:
-            # 首次或无方向：就近
             candidates = list(self.up_stops[eid] | self.down_stops[eid])
             if candidates:
                 nxt = min(candidates, key=lambda x: abs(x - cf))
 
-        if nxt is not None:
-            elevator.go_to_floor(nxt)
-            print(f"[续行] E{eid} 目标 F{nxt}")
-        # 若没有下一站，不做处理，等 on_elevator_idle 触发统一调度
+        if nxt is not None and nxt != cf:
+            if self._dispatch_if_new(elevator, nxt, label=f"E{eid} 目标 F{nxt}"):
+                print(f"[续行] E{eid} 目标 F{nxt}")
+        # 没有下一站则保持空闲，交给 on_elevator_idle 处理
 
     def on_passenger_board(self, elevator: ProxyElevator, passenger: ProxyPassenger) -> None:
         """乘客上梯时的回调"""
         print(f"[上梯] 乘客{passenger.id} 进入 E{elevator.id}（目的 F{passenger.destination}）")
-
-        # ===== 新增：把乘客目的层加入当前电梯的对应方向停靠集合（让其被顺路直送）=====
         eid = elevator.id
         cf = elevator.current_floor
         dest = passenger.destination
@@ -169,6 +192,7 @@ class ElevatorBusExampleController(ElevatorController):
             self.up_stops[eid].add(dest)
         elif dest < cf:
             self.down_stops[eid].add(dest)
+        # 若等于当前层，交给停靠事件处理
 
     def on_passenger_alight(self, elevator: ProxyElevator, passenger: ProxyPassenger, floor: ProxyFloor) -> None:
         """乘客下车时的回调"""
@@ -176,7 +200,6 @@ class ElevatorBusExampleController(ElevatorController):
 
     def on_elevator_passing_floor(self, elevator: ProxyElevator, floor: ProxyFloor, direction: str) -> None:
         """电梯经过楼层时的回调"""
-        # ===== 新增：若方向匹配且需要停（登记点或该层存在同向等待且未满），立即插队停靠 =====
         eid = elevator.id
         cur_dir = elevator.target_floor_direction
         if cur_dir is None:
@@ -192,17 +215,35 @@ class ElevatorBusExampleController(ElevatorController):
             if fl in self.down_stops[eid] or (len(floor.down_queue) > 0 and not elevator.is_full):
                 need_stop = True
 
-        if need_stop:
-            elevator.go_to_floor(fl, immediate=True)
-            print(f"[顺停] E{eid} 将在 F{fl} 临停（{cur_dir.value}）")
+        # 避免同层/同目标的重复插停
+        if need_stop and fl != elevator.current_floor and fl != elevator.target_floor:
+            if self._dispatch_if_new(elevator, fl, immediate=True, label=f"E{eid} 临停 F{fl}"):
+                print(f"[顺停] E{eid} 将在 F{fl} 临停（{cur_dir.value}）")
 
-        # 顺便把全局待接里该层清掉（避免重复）
+        # 清理全局待接中该层，避免后续重复登记
         self.pending_up_floors.discard(fl)
         self.pending_down_floors.discard(fl)
 
     def on_elevator_approaching(self, elevator: ProxyElevator, floor: ProxyFloor, direction: str) -> None:
         """电梯即将到达时的回调"""
-        pass  # 保持安静，避免多余输出
+        pass
+
+    # —— 新增：派单防抖/去重工具 —— #
+    def _dispatch_if_new(self, elevator: ProxyElevator, target: int, *, immediate: bool = False, label: str = "") -> bool:
+        """仅在目标与当前层、现有目标、上次目标都不相同时才真正发送 go_to_floor；返回是否真的派单"""
+        eid = elevator.id
+        if target is None:
+            return False
+        # 同层不派
+        if target == elevator.current_floor:
+            return False
+        # 目标未变化不派（避免刷屏/重复停靠）
+        if target == elevator.target_floor or target == self.last_target.get(eid):
+            return False
+        elevator.go_to_floor(target, immediate=immediate)
+        self.last_target[eid] = target
+        # 可选：这里不打印，统一由调用方打印精简日志
+        return True
 
 
 if __name__ == "__main__":
