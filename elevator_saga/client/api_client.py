@@ -30,7 +30,17 @@ class ElevatorAPIClient:
         self._cached_state: Optional[SimulationState] = None
         self._cached_tick: int = -1
         self._tick_processed: bool = False  # 标记当前tick是否已处理完成
+
+        # 设置无代理的urllib opener用于绕过代理
+        self._setup_no_proxy_opener()
         debug_log(f"API Client initialized for {self.base_url}")
+
+    def _setup_no_proxy_opener(self):
+        """设置无代理的urllib opener"""
+        # 创建一个空的代理处理器（绕过系统代理设置）
+        proxy_handler = urllib.request.ProxyHandler({})
+        # 创建不使用代理的opener
+        self.opener = urllib.request.build_opener(proxy_handler)
 
     def get_state(self, force_reload: bool = False) -> SimulationState:
         """获取模拟状态
@@ -169,7 +179,7 @@ class ElevatorAPIClient:
         # debug_log(f"GET {url}")
 
         try:
-            with urllib.request.urlopen(url, timeout=60) as response:
+            with self.opener.open(url, timeout=60) as response:
                 data: Dict[str, Any] = json.loads(response.read().decode("utf-8"))
                 # debug_log(f"GET {url} -> {response.status}")
                 return data
@@ -231,7 +241,7 @@ class ElevatorAPIClient:
         req = urllib.request.Request(url, data=request_body, headers={"Content-Type": "application/json"})
 
         try:
-            with urllib.request.urlopen(req, timeout=600) as response:
+            with self.opener.open(req, timeout=600) as response:
                 response_data: Dict[str, Any] = json.loads(response.read().decode("utf-8"))
                 # debug_log(f"POST {url} -> {response.status}")
                 return response_data
