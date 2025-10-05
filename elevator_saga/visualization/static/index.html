@@ -78,7 +78,15 @@
 
             <!-- 事件日志 -->
             <div class="event-log">
-                <h3>📝 事件日志</h3>
+                <div class="event-log-header">
+                    <h3>📝 事件日志</h3>
+                    <select id="eventFilter" class="event-filter">
+                        <option value="all">全部事件</option>
+                        <option value="passenger">乘客事件</option>
+                        <option value="elevator">电梯事件</option>
+                        <option value="system">系统事件</option>
+                    </select>
+                </div>
                 <div id="eventList" class="event-list">
                     <!-- 动态生成 -->
                 </div>

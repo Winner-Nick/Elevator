@@ -31,6 +31,12 @@ class ElevatorVisualization {
         document.getElementById('speedControl').addEventListener('input', (e) => {
             this.playbackSpeed = parseFloat(e.target.value);
             document.getElementById('speedValue').textContent = this.playbackSpeed.toFixed(1) + 'x';
+
+            // 如果正在播放，重新设置播放间隔以应用新速度
+            if (this.isPlaying) {
+                this.pause();
+                this.play();
+            }
         });
 
         // 进度条
@@ -58,6 +64,13 @@ class ElevatorVisualization {
         // 刷新记录列表按钮
         document.getElementById('btnRefreshRecordings').addEventListener('click', () => {
             this.loadRecordingList();
+        });
+
+        // 事件筛选
+        this.eventFilterType = 'all';
+        document.getElementById('eventFilter').addEventListener('change', (e) => {
+            this.eventFilterType = e.target.value;
+            this.filterEventLog();
         });
     }
 
@@ -250,9 +263,9 @@ class ElevatorVisualization {
         // 更新事件日志（只添加新事件）
         if (state.events && state.events.length > 0) {
             state.events.forEach(event => {
-                const desc = this.formatEventDescription(event);
-                if (desc) {
-                    this.addEventLog(`Tick ${state.tick}`, desc);
+                const result = this.formatEventDescription(event);
+                if (result) {
+                    this.addEventLog(`Tick ${state.tick}`, result.description, result.type);
                 }
             });
         }
@@ -431,32 +444,66 @@ class ElevatorVisualization {
      */
     formatEventDescription(event) {
         const data = event.data;
+        let description = null;
+        let type = 'system';
+
         switch (event.type) {
             case 'up_button_pressed':
-                return `乘客P${data.passenger}在F${data.floor}按下上行按钮`;
             case 'down_button_pressed':
-                return `乘客P${data.passenger}在F${data.floor}按下下行按钮`;
-            case 'stopped_at_floor':
-                return `电梯E${data.elevator}停靠在F${data.floor}`;
             case 'passenger_board':
-                return `乘客P${data.passenger}登上电梯E${data.elevator}`;
             case 'passenger_alight':
-                return `乘客P${data.passenger}从电梯E${data.elevator}下车，到达F${data.floor}`;
+                type = 'passenger';
+                break;
+            case 'stopped_at_floor':
             case 'idle':
-                return `电梯E${data.elevator}进入空闲状态`;
+            case 'passing_floor':
+            case 'elevator_approaching':
+                type = 'elevator';
+                break;
+        }
+
+        switch (event.type) {
+            case 'up_button_pressed':
+                description = `乘客P${data.passenger}在F${data.floor}按下上行按钮`;
+                break;
+            case 'down_button_pressed':
+                description = `乘客P${data.passenger}在F${data.floor}按下下行按钮`;
+                break;
+            case 'stopped_at_floor':
+                description = `电梯E${data.elevator}停靠在F${data.floor}`;
+                break;
+            case 'passenger_board':
+                description = `乘客P${data.passenger}登上电梯E${data.elevator}`;
+                break;
+            case 'passenger_alight':
+                description = `乘客P${data.passenger}从电梯E${data.elevator}下车，到达F${data.floor}`;
+                break;
+            case 'idle':
+                description = `电梯E${data.elevator}进入空闲状态`;
+                break;
             default:
                 return null;
         }
+
+        return { description, type };
     }
 
     /**
      * 添加事件日志
      */
-    addEventLog(tick, description) {
+    addEventLog(tick, description, type = 'system') {
         const eventList = document.getElementById('eventList');
         const eventItem = document.createElement('div');
         eventItem.className = 'event-item';
+        eventItem.setAttribute('data-event-type', type);
         eventItem.innerHTML = `<span class="event-tick">[${tick}]</span> ${description}`;
+
+        // 根据筛选条件决定是否显示
+        if (this.eventFilterType === 'all' || this.eventFilterType === type) {
+            eventItem.style.display = 'block';
+        } else {
+            eventItem.style.display = 'none';
+        }
 
         eventList.insertBefore(eventItem, eventList.firstChild);
 
@@ -464,6 +511,23 @@ class ElevatorVisualization {
         while (eventList.children.length > 50) {
             eventList.removeChild(eventList.lastChild);
         }
+    }
+
+    /**
+     * 筛选事件日志
+     */
+    filterEventLog() {
+        const eventList = document.getElementById('eventList');
+        const items = eventList.querySelectorAll('.event-item');
+
+        items.forEach(item => {
+            const eventType = item.getAttribute('data-event-type');
+            if (this.eventFilterType === 'all' || this.eventFilterType === eventType) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
     }
 }
 
