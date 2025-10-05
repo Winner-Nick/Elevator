@@ -49,8 +49,13 @@ docs = [
     "sphinx-rtd-theme>=1.0.0",
     "myst-parser>=0.18.0",
 ]
+visualization = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+    "websockets>=11.0.0",
+]
 all = [
-    "elevatorpy[dev,docs]",
+    "elevatorpy[dev,docs,visualization]",
 ]
 
 [project.scripts]

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏢 电梯调度可视化系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- 顶部标题栏 -->
+    <header class="header">
+        <div class="header-left">
+            <h1>🏢 电梯调度可视化系统</h1>
+        </div>
+        <div class="header-right">
+            <span class="tick-display">Tick: <span id="currentTick">0</span></span>
+        </div>
+    </header>
+
+    <!-- 控制面板 -->
+    <div class="control-panel">
+        <div class="control-buttons">
+            <button id="btnPlay" class="btn btn-primary" title="播放">▶️ 播放</button>
+            <button id="btnPause" class="btn btn-secondary" title="暂停" disabled>⏸️ 暂停</button>
+            <button id="btnReset" class="btn btn-secondary" title="重置">⏮️ 重置</button>
+        </div>
+        <div class="control-speed">
+            <label for="speedControl">播放速度: <span id="speedValue">1.0x</span></label>
+            <input type="range" id="speedControl" min="0.1" max="5" step="0.1" value="1.0">
+        </div>
+        <div class="control-progress">
+            <input type="range" id="progressBar" min="0" max="100" value="0">
+        </div>
+        <div class="control-recording">
+            <select id="recordingSelect">
+                <option value="">选择记录文件...</option>
+            </select>
+            <button id="btnLoadRecording" class="btn btn-secondary">加载</button>
+            <button id="btnRefreshRecordings" class="btn btn-secondary">🔄 刷新列表</button>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <!-- 电梯井道区域 -->
+        <div class="elevator-area">
+            <div id="buildingView" class="building-view">
+                <!-- 动态生成 -->
+            </div>
+        </div>
+
+        <!-- 侧边信息栏 -->
+        <aside class="info-panel">
+            <!-- 统计信息 -->
+            <div class="stats-panel">
+                <h3>📊 统计信息</h3>
+                <div class="stat-item">
+                    <span class="stat-label">总乘客:</span>
+                    <span class="stat-value" id="statTotal">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">✅ 已送达:</span>
+                    <span class="stat-value" id="statDelivered">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">🚀 运送中:</span>
+                    <span class="stat-value" id="statInTransit">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">⏳ 等待中:</span>
+                    <span class="stat-value" id="statWaiting">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">平均等待:</span>
+                    <span class="stat-value" id="statAvgWait">0</span> ticks
+                </div>
+            </div>
+
+            <!-- 事件日志 -->
+            <div class="event-log">
+                <h3>📝 事件日志</h3>
+                <div id="eventList" class="event-list">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
