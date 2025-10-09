@@ -38,6 +38,31 @@
             <button id="btnLoadRecording" class="btn btn-secondary">加载</button>
             <button id="btnRefreshRecordings" class="btn btn-secondary">🔄 刷新列表</button>
         </div>
+
+        <!-- 运行算法控制 -->
+        <div class="control-run">
+            <div class="run-header">
+                <h4>🚀 运行新仿真</h4>
+            </div>
+            <div class="run-selectors">
+                <div class="run-selector-group">
+                    <label for="algorithmSelect">算法:</label>
+                    <select id="algorithmSelect">
+                        <option value="">选择算法...</option>
+                    </select>
+                </div>
+                <div class="run-selector-group">
+                    <label for="trafficSelect">流量文件:</label>
+                    <select id="trafficSelect">
+                        <option value="">选择流量文件...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="run-actions">
+                <button id="btnRunAlgorithm" class="btn btn-success" disabled>▶️ 运行仿真</button>
+                <span id="runStatus" class="run-status"></span>
+            </div>
+        </div>
     </div>
 
     <!-- 主内容区 -->

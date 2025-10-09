@@ -16,3 +16,4 @@ https://zgca-forge.github.io/Elevator/client.html
 
 ## 当前进度
 可随时查看git历史记录。当前已经开发了一个简易的例子，在elevator_saga\client_examples\simple_example.py中。
+当前环境是在anaconda环境下的elevator中

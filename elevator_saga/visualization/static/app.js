@@ -72,6 +72,23 @@ class ElevatorVisualization {
             this.eventFilterType = e.target.value;
             this.filterEventLog();
         });
+
+        // 算法和流量文件选择变化
+        document.getElementById('algorithmSelect').addEventListener('change', () => {
+            this.updateRunButtonState();
+        });
+        document.getElementById('trafficSelect').addEventListener('change', () => {
+            this.updateRunButtonState();
+        });
+
+        // 运行算法按钮
+        document.getElementById('btnRunAlgorithm').addEventListener('click', () => {
+            this.runAlgorithm();
+        });
+
+        // 加载算法和流量文件列表
+        this.loadAlgorithmList();
+        this.loadTrafficFileList();
     }
 
     /**
@@ -177,6 +194,152 @@ class ElevatorVisualization {
                 command: 'load_recording',
                 filename: filename
             }));
+        }
+    }
+
+    /**
+     * 加载算法列表
+     */
+    async loadAlgorithmList() {
+        try {
+            const response = await fetch('/api/algorithms');
+            const data = await response.json();
+
+            if (data.success) {
+                const select = document.getElementById('algorithmSelect');
+                select.innerHTML = '<option value="">选择算法...</option>';
+
+                data.algorithms.forEach(algorithm => {
+                    const option = document.createElement('option');
+                    option.value = algorithm.filename;
+                    option.textContent = `${algorithm.name} - ${algorithm.description}`;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('加载算法列表失败:', error);
+            this.addEventLog('错误', '加载算法列表失败');
+        }
+    }
+
+    /**
+     * 加载流量文件列表
+     */
+    async loadTrafficFileList() {
+        try {
+            const response = await fetch('/api/traffic_files');
+            const data = await response.json();
+
+            if (data.success) {
+                const select = document.getElementById('trafficSelect');
+                select.innerHTML = '<option value="">选择流量文件...</option>';
+
+                data.traffic_files.forEach(traffic => {
+                    const option = document.createElement('option');
+                    option.value = traffic.filename;
+                    const info = traffic.passengers ?
+                        `${traffic.name} (${traffic.passengers}人, ${traffic.elevators}梯, ${traffic.floors}层)` :
+                        traffic.name;
+                    option.textContent = info;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('加载流量文件列表失败:', error);
+            this.addEventLog('错误', '加载流量文件列表失败');
+        }
+    }
+
+    /**
+     * 更新运行按钮状态
+     */
+    updateRunButtonState() {
+        const algorithmSelect = document.getElementById('algorithmSelect');
+        const trafficSelect = document.getElementById('trafficSelect');
+        const runButton = document.getElementById('btnRunAlgorithm');
+
+        // 只有当两个都选择了才启用运行按钮
+        runButton.disabled = !algorithmSelect.value || !trafficSelect.value;
+    }
+
+    /**
+     * 运行算法
+     */
+    async runAlgorithm() {
+        const algorithmSelect = document.getElementById('algorithmSelect');
+        const trafficSelect = document.getElementById('trafficSelect');
+        const runStatus = document.getElementById('runStatus');
+        const runButton = document.getElementById('btnRunAlgorithm');
+
+        const algorithm = algorithmSelect.value;
+        const trafficFile = trafficSelect.value;
+
+        if (!algorithm || !trafficFile) {
+            return;
+        }
+
+        try {
+            // 显示运行状态
+            runStatus.textContent = '⏳ 运行中...';
+            runStatus.className = 'run-status running';
+            runButton.disabled = true;
+
+            this.addEventLog('系统', `开始运行: ${algorithm} + ${trafficFile}`);
+
+            // 发送运行请求
+            const response = await fetch('/api/run_algorithm', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    algorithm: algorithm,
+                    traffic_file: trafficFile,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // 运行成功
+                runStatus.textContent = '✅ 运行成功';
+                runStatus.className = 'run-status success';
+                this.addEventLog('系统', `运行成功: ${data.recording}`);
+
+                // 刷新记录列表并自动加载新生成的记录
+                await this.loadRecordingList(false);
+
+                // 选中并加载新生成的记录
+                const recordingSelect = document.getElementById('recordingSelect');
+                recordingSelect.value = data.recording;
+                this.loadRecording(data.recording);
+
+            } else {
+                // 运行失败
+                runStatus.textContent = '❌ 运行失败';
+                runStatus.className = 'run-status error';
+                this.addEventLog('错误', `运行失败: ${data.error}`);
+            }
+
+            // 3秒后清空状态
+            setTimeout(() => {
+                runStatus.textContent = '';
+                runStatus.className = 'run-status';
+                this.updateRunButtonState();
+            }, 3000);
+
+        } catch (error) {
+            console.error('运行算法失败:', error);
+            runStatus.textContent = '❌ 运行失败';
+            runStatus.className = 'run-status error';
+            this.addEventLog('错误', `运行算法失败: ${error.message}`);
+
+            // 3秒后清空状态
+            setTimeout(() => {
+                runStatus.textContent = '';
+                runStatus.className = 'run-status';
+                this.updateRunButtonState();
+            }, 3000);
         }
     }
 

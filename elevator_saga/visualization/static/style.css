@@ -122,6 +122,96 @@ body {
     font-size: 1rem;
 }
 
+/* 运行算法控制 */
+.control-run {
+    border-top: 2px solid #e8e8e8;
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+}
+
+.run-header {
+    margin-bottom: 1rem;
+}
+
+.run-header h4 {
+    color: #667eea;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.run-selectors {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.run-selector-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.run-selector-group label {
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9rem;
+}
+
+.run-selector-group select {
+    padding: 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+    background: white;
+    transition: border-color 0.3s ease;
+}
+
+.run-selector-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.run-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-success {
+    background: #27ae60;
+    color: white;
+    font-weight: 600;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #229954;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(39, 174, 96, 0.4);
+}
+
+.run-status {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.run-status.running {
+    background: #f39c12;
+    color: white;
+}
+
+.run-status.success {
+    background: #27ae60;
+    color: white;
+}
+
+.run-status.error {
+    background: #e74c3c;
+    color: white;
+}
+
 /* 主内容区 */
 .main-content {
     display: flex;
