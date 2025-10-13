@@ -520,13 +520,19 @@ class Executor:
 
         plan = self.elevator_plans[elevator.id]
 
-        # 插入任务到队列
-        plan.task_queue.append(pickup_task)
-        plan.task_queue.append(dropoff_task)
+        # 智能插入任务，而不是重新排序整个队列
+        # 这样可以保持电梯当前的运行方向和计划
+        if not plan.task_queue:
+            # 队列为空，直接添加
+            plan.task_queue.append(pickup_task)
+            plan.task_queue.append(dropoff_task)
+        else:
+            # 队列不为空，根据 LOOK 算法找到合适的插入位置
+            self._insert_task_look(plan, pickup_task, elevator)
+            self._insert_task_look(plan, dropoff_task, elevator)
 
-        # 重新排序任务队列
+        # 合并相同楼层的任务
         planner = self.controller.path_planner
-        plan.task_queue = planner.sort_tasks_look(plan.task_queue, elevator)
         plan.task_queue = planner.merge_tasks(plan.task_queue)
 
         # 验证容量约束
@@ -534,6 +540,62 @@ class Executor:
         if not valid:
             plan.task_queue, estimated_load = planner.adjust_for_capacity(plan.task_queue, elevator)
         plan.estimated_load = estimated_load
+
+    def _insert_task_look(self, plan: ElevatorPlan, new_task: ElevatorTask, elevator: ProxyElevator) -> None:
+        """根据 LOOK 算法将任务插入到合适的位置"""
+        if not plan.task_queue:
+            plan.task_queue.append(new_task)
+            return
+
+        current_floor = elevator.current_floor
+        current_direction = elevator.target_floor_direction
+
+        # 如果电梯停止，使用任务的方向
+        if current_direction == Direction.STOPPED:
+            current_direction = Direction.UP if new_task.floor >= current_floor else Direction.DOWN
+
+        # 找到插入位置
+        inserted = False
+        for i, task in enumerate(plan.task_queue):
+            # 如果新任务和现有任务在同一楼层，插入到该任务前面（稍后会合并）
+            if task.floor == new_task.floor:
+                plan.task_queue.insert(i, new_task)
+                inserted = True
+                break
+
+            # LOOK 逻辑：按方向顺序插入
+            if current_direction == Direction.UP:
+                # 向上时，按楼层从低到高排序
+                if new_task.floor < current_floor:
+                    # 新任务在当前楼层下方，应该在反方向时处理
+                    if task.floor < current_floor or task.floor > new_task.floor:
+                        plan.task_queue.insert(i, new_task)
+                        inserted = True
+                        break
+                else:
+                    # 新任务在当前楼层上方，应该在当前方向时处理
+                    if task.floor > new_task.floor and task.floor >= current_floor:
+                        plan.task_queue.insert(i, new_task)
+                        inserted = True
+                        break
+            else:  # Direction.DOWN
+                # 向下时，按楼层从高到低排序
+                if new_task.floor > current_floor:
+                    # 新任务在当前楼层上方，应该在反方向时处理
+                    if task.floor > current_floor or task.floor < new_task.floor:
+                        plan.task_queue.insert(i, new_task)
+                        inserted = True
+                        break
+                else:
+                    # 新任务在当前楼层下方，应该在当前方向时处理
+                    if task.floor < new_task.floor and task.floor <= current_floor:
+                        plan.task_queue.insert(i, new_task)
+                        inserted = True
+                        break
+
+        # 如果没有插入，添加到队列末尾
+        if not inserted:
+            plan.task_queue.append(new_task)
 
     def execute_next_task(self, elevator: ProxyElevator) -> None:
         """执行下一个任务"""
@@ -685,15 +747,8 @@ class OptimalLookController(ElevatorController):
                     new_queue.append(task)
             plan.task_queue = new_queue
 
-        # 检查是否还有其他任务，如果有，设置下一个目标
-        if plan and plan.task_queue:
-            next_floor = None
-            for task in plan.task_queue:
-                if task.floor != elevator.current_floor:
-                    next_floor = task.floor
-                    break
-            if next_floor is not None:
-                elevator.go_to_floor(next_floor)
+        # 不在这里设置目标，让 on_elevator_stopped 统一处理
+        # 这样可以避免频繁改变目标，保持 LOOK 算法的连续性
 
     def on_passenger_alight(self, elevator: ProxyElevator, passenger: ProxyPassenger, floor: ProxyFloor) -> None:
         """乘客下梯"""
@@ -719,15 +774,8 @@ class OptimalLookController(ElevatorController):
                     new_queue.append(task)
             plan.task_queue = new_queue
 
-        # 检查是否还有其他任务，如果有，设置下一个目标
-        if plan and plan.task_queue:
-            next_floor = None
-            for task in plan.task_queue:
-                if task.floor != elevator.current_floor:
-                    next_floor = task.floor
-                    break
-            if next_floor is not None:
-                elevator.go_to_floor(next_floor)
+        # 不在这里设置目标，让 on_elevator_stopped 统一处理
+        # 这样可以避免频繁改变目标，保持 LOOK 算法的连续性
 
     def on_event_execute_start(
         self, tick: int, events: List[SimulationEvent], elevators: List[ProxyElevator], floors: List[ProxyFloor]
