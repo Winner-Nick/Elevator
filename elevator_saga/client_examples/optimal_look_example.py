@@ -549,9 +549,9 @@ class Executor:
                 next_floor = task.floor
                 break
 
-        # 移动到目标楼层
+        # 移动到目标楼层（不使用 immediate=True，让系统先处理乘客）
         if next_floor is not None:
-            elevator.go_to_floor(next_floor, immediate=True)
+            elevator.go_to_floor(next_floor)
 
     def handle_arrival(self, elevator: ProxyElevator, floor: ProxyFloor) -> None:
         """处理到达楼层事件"""
@@ -635,7 +635,9 @@ class OptimalLookController(ElevatorController):
         """电梯停靠"""
         print(f"[STOP] 电梯 E{elevator.id} 停靠在 F{floor.floor}")
 
-        # 先找到下一个目标楼层（跳过当前楼层的任务）
+        # 设置下一个目标楼层（不使用 immediate=True，让系统先处理乘客）
+        # 在 on_passenger_board/alight 中也会设置目标，但如果没有乘客上下梯，
+        # 这里的设置会确保电梯继续移动
         plan = self.executor.elevator_plans.get(elevator.id)
         if plan and plan.task_queue:
             # 找到第一个不是当前楼层的任务
@@ -645,13 +647,9 @@ class OptimalLookController(ElevatorController):
                     next_floor = task.floor
                     break
 
-            # 设置下一个目标（系统会在处理完乘客后移动）
+            # 设置下一个目标（不使用 immediate，系统会在处理完乘客后移动）
             if next_floor is not None:
-                elevator.go_to_floor(next_floor, immediate=True)
-
-        # 然后移除当前楼层的已完成任务
-        # 注意：这在设置下一个目标之后进行，确保电梯有正确的下一站
-        self.executor.handle_arrival(elevator, floor)
+                elevator.go_to_floor(next_floor)
 
     def on_elevator_idle(self, elevator: ProxyElevator) -> None:
         """电梯空闲"""
@@ -670,12 +668,66 @@ class OptimalLookController(ElevatorController):
         """乘客上梯"""
         print(f"  [BOARD] 乘客 {passenger.id} 上梯 E{elevator.id} 在 F{elevator.current_floor}")
 
+        # 删除该乘客的 pickup 任务
+        plan = self.executor.elevator_plans.get(elevator.id)
+        if plan:
+            # 从任务队列中移除该乘客的 pickup 任务
+            new_queue = []
+            for task in plan.task_queue:
+                if task.task_type == "pickup" and passenger.id in task.passenger_ids:
+                    # 移除该乘客
+                    task.passenger_ids.remove(passenger.id)
+                    # 如果任务还有其他乘客，保留任务
+                    if task.passenger_ids:
+                        new_queue.append(task)
+                    # 否则丢弃空任务
+                else:
+                    new_queue.append(task)
+            plan.task_queue = new_queue
+
+        # 检查是否还有其他任务，如果有，设置下一个目标
+        if plan and plan.task_queue:
+            next_floor = None
+            for task in plan.task_queue:
+                if task.floor != elevator.current_floor:
+                    next_floor = task.floor
+                    break
+            if next_floor is not None:
+                elevator.go_to_floor(next_floor)
+
     def on_passenger_alight(self, elevator: ProxyElevator, passenger: ProxyPassenger, floor: ProxyFloor) -> None:
         """乘客下梯"""
         print(f"  [ALIGHT] 乘客 {passenger.id} 下梯 E{elevator.id} 在 F{floor.floor}")
 
         # 移除请求
         self.request_manager.remove_request(passenger.id)
+
+        # 删除该乘客的 dropoff 任务
+        plan = self.executor.elevator_plans.get(elevator.id)
+        if plan:
+            # 从任务队列中移除该乘客的 dropoff 任务
+            new_queue = []
+            for task in plan.task_queue:
+                if task.task_type == "dropoff" and passenger.id in task.passenger_ids:
+                    # 移除该乘客
+                    task.passenger_ids.remove(passenger.id)
+                    # 如果任务还有其他乘客，保留任务
+                    if task.passenger_ids:
+                        new_queue.append(task)
+                    # 否则丢弃空任务
+                else:
+                    new_queue.append(task)
+            plan.task_queue = new_queue
+
+        # 检查是否还有其他任务，如果有，设置下一个目标
+        if plan and plan.task_queue:
+            next_floor = None
+            for task in plan.task_queue:
+                if task.floor != elevator.current_floor:
+                    next_floor = task.floor
+                    break
+            if next_floor is not None:
+                elevator.go_to_floor(next_floor)
 
     def on_event_execute_start(
         self, tick: int, events: List[SimulationEvent], elevators: List[ProxyElevator], floors: List[ProxyFloor]
