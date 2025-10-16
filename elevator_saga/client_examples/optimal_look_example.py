@@ -202,7 +202,7 @@ class PathPlanner:
         return plan
 
     def sort_tasks_look(self, tasks: List[ElevatorTask], elevator: ProxyElevator) -> List[ElevatorTask]:
-        """使用LOOK算法排序任务"""
+        """✅ 改进的LOOK算法排序，考虑pickup任务的方向匹配"""
         if not tasks:
             return []
 
@@ -217,27 +217,74 @@ class PathPlanner:
                     Direction.UP if nearest_task.floor >= current_floor else Direction.DOWN
                 )
 
-        # 分组：当前方向的任务 和 反方向的任务
-        same_direction_tasks = []
-        opposite_direction_tasks = []
+        # 将任务分为三类：
+        # 1. current_phase：当前扫描阶段可以执行的任务
+        # 2. reverse_phase：反向扫描阶段可以执行的任务
+        # 3. next_cycle：下一个周期才能执行的任务
+
+        current_phase = []
+        reverse_phase = []
+        next_cycle = []
 
         for task in tasks:
-            if current_direction == Direction.UP and task.floor >= current_floor:
-                same_direction_tasks.append(task)
-            elif current_direction == Direction.DOWN and task.floor <= current_floor:
-                same_direction_tasks.append(task)
-            else:
-                opposite_direction_tasks.append(task)
+            task_floor = task.floor
 
-        # 当前方向：按楼层排序
+            if task.task_type == "dropoff":
+                # dropoff任务没有方向限制，按楼层位置分配
+                if current_direction == Direction.UP:
+                    if task_floor >= current_floor:
+                        current_phase.append(task)
+                    else:
+                        reverse_phase.append(task)
+                else:  # DOWN
+                    if task_floor <= current_floor:
+                        current_phase.append(task)
+                    else:
+                        reverse_phase.append(task)
+
+            elif task.task_type == "pickup":
+                # pickup任务必须考虑方向匹配
+                required_dir = task.direction
+
+                if current_direction == Direction.UP:
+                    if required_dir == Direction.UP and task_floor >= current_floor:
+                        # 向上需求，在当前楼层以上，可以在当前UP阶段接
+                        current_phase.append(task)
+                    elif required_dir == Direction.DOWN:
+                        # 向下需求，在DOWN阶段接
+                        reverse_phase.append(task)
+                    elif required_dir == Direction.UP and task_floor < current_floor:
+                        # 向上需求，但在当前楼层以下，需要下一个UP周期
+                        next_cycle.append(task)
+
+                else:  # current_direction == Direction.DOWN
+                    if required_dir == Direction.DOWN and task_floor <= current_floor:
+                        # 向下需求，在当前楼层以下，可以在当前DOWN阶段接
+                        current_phase.append(task)
+                    elif required_dir == Direction.UP:
+                        # 向上需求，在UP阶段接
+                        reverse_phase.append(task)
+                    elif required_dir == Direction.DOWN and task_floor > current_floor:
+                        # 向下需求，但在当前楼层以上，需要下一个DOWN周期
+                        next_cycle.append(task)
+
+        # 排序各阶段的任务
         if current_direction == Direction.UP:
-            same_direction_tasks.sort(key=lambda t: t.floor)
-            opposite_direction_tasks.sort(key=lambda t: t.floor, reverse=True)
+            current_phase.sort(key=lambda t: t.floor)  # 升序
+            reverse_phase.sort(key=lambda t: t.floor, reverse=True)  # 降序
+            next_cycle.sort(key=lambda t: t.floor)  # 升序
         else:
-            same_direction_tasks.sort(key=lambda t: t.floor, reverse=True)
-            opposite_direction_tasks.sort(key=lambda t: t.floor)
+            current_phase.sort(key=lambda t: t.floor, reverse=True)  # 降序
+            reverse_phase.sort(key=lambda t: t.floor)  # 升序
+            next_cycle.sort(key=lambda t: t.floor, reverse=True)  # 降序
 
-        return same_direction_tasks + opposite_direction_tasks
+        # 调试：输出next_cycle的任务
+        if next_cycle:
+            pickup_in_next = [t for t in next_cycle if t.task_type == "pickup"]
+            if pickup_in_next:
+                print(f"  [DEBUG] {len(pickup_in_next)} pickup任务被排到next_cycle，可能无法执行")
+
+        return current_phase + reverse_phase + next_cycle
 
     def merge_tasks(self, tasks: List[ElevatorTask]) -> List[ElevatorTask]:
         """合并相同楼层的任务"""
@@ -374,6 +421,7 @@ class Dispatcher:
         # 按优先级排序（高优先级优先分配）
         sorted_requests = sorted(pending_requests, key=lambda r: r.priority, reverse=True)
 
+        assigned_count = 0
         for request in sorted_requests:
             # ✅ 修复1：任务去重 - 检查是否已经被分配
             if request.assigned_elevator is not None:
@@ -387,6 +435,10 @@ class Dispatcher:
                 self.controller.request_manager.assign_request(request.passenger_id, best_elevator.id)
                 # 更新电梯计划
                 self.controller.executor.add_request_to_elevator(best_elevator, request)
+                assigned_count += 1
+
+        if assigned_count > 0:
+            print(f"  [ASSIGN] 成功分配 {assigned_count} 个请求")
 
     def find_best_elevator(
         self, request: PassengerRequest, elevators: List[ProxyElevator], current_tick: int
@@ -524,153 +576,218 @@ class Executor:
 
         plan = self.elevator_plans[elevator.id]
 
-        # 智能插入任务，而不是重新排序整个队列
-        # 这样可以保持电梯当前的运行方向和计划
-        if not plan.task_queue:
-            # 队列为空，直接添加
-            plan.task_queue.append(pickup_task)
-            plan.task_queue.append(dropoff_task)
-        else:
-            # 队列不为空，根据 LOOK 算法找到合适的插入位置
-            self._insert_task_look(plan, pickup_task, elevator)
-            self._insert_task_look(plan, dropoff_task, elevator)
+        # ✅ 最简单策略：只追加到队列末尾，不排序
+        # LOOK算法的核心是顺序扫描，新任务追加到末尾即可
+        # 这样可以确保已有任务不会被重新排序导致饥饿
+        plan.task_queue.append(pickup_task)
+        plan.task_queue.append(dropoff_task)
 
-        # 合并相同楼层的任务
-        planner = self.controller.path_planner
-        plan.task_queue = planner.merge_tasks(plan.task_queue)
+        # 不排序，不合并，保持任务顺序
 
         # 验证容量约束
+        planner = self.controller.path_planner
         valid, estimated_load = planner.validate_capacity(plan.task_queue, elevator)
         if not valid:
             plan.task_queue, estimated_load = planner.adjust_for_capacity(plan.task_queue, elevator)
         plan.estimated_load = estimated_load
 
-    def _insert_task_look(self, plan: ElevatorPlan, new_task: ElevatorTask, elevator: ProxyElevator) -> None:
-        """✅ 修复3：根据 LOOK 算法将任务插入到合适的位置，确保pickup任务的方向匹配"""
+    def _insert_task_look(self, plan: ElevatorPlan, new_task: ElevatorTask, elevator: ProxyElevator) -> bool:
+        """✅ 修复3（完全重写）：清晰的LOOK算法任务插入逻辑
+
+        LOOK算法核心：
+        1. 电梯沿一个方向扫描，服务该方向上的所有请求
+        2. 到达边界后，反向扫描
+        3. 关键：pickup任务只能在方向匹配时执行
+
+        Returns:
+            bool: True if task was inserted successfully, False otherwise
+        """
         if not plan.task_queue:
             plan.task_queue.append(new_task)
-            return
+            return True
 
         current_floor = elevator.current_floor
         current_direction = elevator.target_floor_direction
 
-        # 如果电梯停止，使用任务的方向
+        # 如果电梯停止，根据第一个任务判断方向
         if current_direction == Direction.STOPPED:
-            current_direction = Direction.UP if new_task.floor >= current_floor else Direction.DOWN
+            if plan.task_queue:
+                first_task_floor = plan.task_queue[0].floor
+                current_direction = Direction.UP if first_task_floor >= current_floor else Direction.DOWN
+            else:
+                current_direction = Direction.UP if new_task.floor >= current_floor else Direction.DOWN
 
-        # ✅ 关键修复：对于 pickup 任务，必须确保电梯到达时方向匹配
-        if new_task.task_type == "pickup":
-            required_direction = new_task.direction  # 乘客需要的方向
-            task_floor = new_task.floor
+        task_floor = new_task.floor
+        task_type = new_task.task_type
 
-            # 分析任务队列，找到合适的插入位置
-            # 策略：将队列分为"当前扫描阶段"和"反方向扫描阶段"
-            # 确保pickup任务插入到方向匹配的扫描阶段
+        # ===== 核心逻辑 =====
+        # 将任务队列理解为一个扫描周期：
+        # - 向上扫描周期：UP阶段（升序） -> DOWN阶段（降序） -> 下一个UP阶段（升序）...
+        # - 向下扫描周期：DOWN阶段（降序） -> UP阶段（升序） -> 下一个DOWN阶段（降序）...
 
-            inserted = False
-            for i, existing_task in enumerate(plan.task_queue):
-                # 同楼层任务，插入到前面（稍后会合并）
-                if existing_task.floor == task_floor:
-                    plan.task_queue.insert(i, new_task)
-                    inserted = True
+        # 对于pickup任务，必须插入到方向匹配的阶段
+        # 对于dropoff任务，按楼层顺序插入即可
+
+        if task_type == "pickup":
+            required_direction = new_task.direction
+
+            # 确定任务应该插入到哪个扫描阶段
+            # 1. 如果当前向上扫描
+            if current_direction == Direction.UP:
+                if required_direction == Direction.UP:
+                    # 乘客需要向上
+                    if task_floor >= current_floor:
+                        # 在当前楼层或以上 -> 插入到当前UP阶段
+                        target_phase = "current_up"
+                    else:
+                        # 在当前楼层以下 -> 需要等到下一个UP阶段
+                        # 即：UP -> DOWN -> UP（这里）
+                        target_phase = "next_up"
+                else:  # required_direction == Direction.DOWN
+                    # 乘客需要向下 -> 插入到DOWN阶段
+                    target_phase = "down"
+
+            # 2. 如果当前向下扫描
+            else:  # current_direction == Direction.DOWN
+                if required_direction == Direction.DOWN:
+                    # 乘客需要向下
+                    if task_floor <= current_floor:
+                        # 在当前楼层或以下 -> 插入到当前DOWN阶段
+                        target_phase = "current_down"
+                    else:
+                        # 在当前楼层以上 -> 需要等到下一个DOWN阶段
+                        target_phase = "next_down"
+                else:  # required_direction == Direction.UP
+                    # 乘客需要向上 -> 插入到UP阶段
+                    target_phase = "up"
+
+            # 找到目标阶段在队列中的位置并插入
+            inserted = self._insert_to_phase(plan, new_task, target_phase, current_floor, current_direction)
+            return inserted
+
+        else:  # dropoff任务，没有方向限制
+            # 按楼层顺序插入，优先插入到当前扫描阶段
+            if current_direction == Direction.UP:
+                if task_floor >= current_floor:
+                    target_phase = "current_up"
+                else:
+                    target_phase = "down"
+            else:
+                if task_floor <= current_floor:
+                    target_phase = "current_down"
+                else:
+                    target_phase = "up"
+
+            inserted = self._insert_to_phase(plan, new_task, target_phase, current_floor, current_direction)
+            return inserted
+
+    def _insert_to_phase(
+        self, plan: ElevatorPlan, new_task: ElevatorTask, target_phase: str, current_floor: int, current_direction: Direction
+    ) -> bool:
+        """将任务插入到指定的扫描阶段"""
+        task_floor = new_task.floor
+        queue = plan.task_queue
+
+        # 分析队列结构，找到各阶段的边界
+        # 当前向上时：[当前UP阶段 | DOWN阶段 | 下一个UP阶段]
+        # 当前向下时：[当前DOWN阶段 | UP阶段 | 下一个DOWN阶段]
+
+        if current_direction == Direction.UP:
+            # 找到DOWN阶段的起始位置（第一个 floor < current_floor 的任务）
+            down_start = len(queue)
+            for i, task in enumerate(queue):
+                if task.floor < current_floor:
+                    down_start = i
                     break
 
-                # 判断插入位置
-                if current_direction == Direction.UP:
-                    # 当前向上扫描
-                    if required_direction == Direction.UP:
-                        # 乘客需要向上，必须在向上扫描时接客
-                        if task_floor >= current_floor:
-                            # 任务在当前方向上
-                            if existing_task.floor > task_floor and existing_task.floor >= current_floor:
-                                plan.task_queue.insert(i, new_task)
-                                inserted = True
-                                break
-                    else:
-                        # 乘客需要向下，必须在向下扫描时接客
-                        if task_floor <= current_floor:
-                            # 任务在反方向上（向下扫描时）
-                            if existing_task.floor < current_floor and existing_task.floor < task_floor:
-                                plan.task_queue.insert(i, new_task)
-                                inserted = True
-                                break
-                        else:
-                            # 任务楼层在上方，但乘客要向下，需要先到达该楼层再转向
-                            # 插入到向上扫描结束、向下扫描开始的位置
-                            if existing_task.floor < current_floor:
-                                plan.task_queue.insert(i, new_task)
-                                inserted = True
-                                break
+            # 找到下一个UP阶段的起始位置（DOWN阶段后，第一个开始上升的任务）
+            # 简化：DOWN阶段内任务应该是降序，如果出现升序则是下一个UP阶段
+            next_up_start = len(queue)
+            if down_start < len(queue):
+                prev_floor = queue[down_start].floor
+                for i in range(down_start + 1, len(queue)):
+                    if queue[i].floor > prev_floor:
+                        next_up_start = i
+                        break
+                    prev_floor = queue[i].floor
 
-                else:  # Direction.DOWN
-                    # 当前向下扫描
-                    if required_direction == Direction.DOWN:
-                        # 乘客需要向下，必须在向下扫描时接客
-                        if task_floor <= current_floor:
-                            # 任务在当前方向上
-                            if existing_task.floor < task_floor and existing_task.floor <= current_floor:
-                                plan.task_queue.insert(i, new_task)
-                                inserted = True
-                                break
-                    else:
-                        # 乘客需要向上，必须在向上扫描时接客
-                        if task_floor >= current_floor:
-                            # 任务在反方向上（向上扫描时）
-                            if existing_task.floor > current_floor and existing_task.floor > task_floor:
-                                plan.task_queue.insert(i, new_task)
-                                inserted = True
-                                break
-                        else:
-                            # 任务楼层在下方，但乘客要向上，需要先到达该楼层再转向
-                            # 插入到向下扫描结束、向上扫描开始的位置
-                            if existing_task.floor > current_floor:
-                                plan.task_queue.insert(i, new_task)
-                                inserted = True
-                                break
+            # 根据目标阶段插入
+            if target_phase == "current_up":
+                # 插入到当前UP阶段（升序）
+                for i in range(down_start):
+                    if queue[i].floor >= task_floor:
+                        queue.insert(i, new_task)
+                        return True
+                queue.insert(down_start, new_task)
+                return True
 
-            if not inserted:
-                plan.task_queue.append(new_task)
+            elif target_phase == "down":
+                # 插入到DOWN阶段（降序）
+                for i in range(down_start, next_up_start):
+                    if queue[i].floor <= task_floor:
+                        queue.insert(i, new_task)
+                        return True
+                queue.insert(next_up_start, new_task)
+                return True
 
-        else:
-            # dropoff 任务没有方向限制，按原有LOOK逻辑插入
-            inserted = False
-            for i, task in enumerate(plan.task_queue):
-                # 同楼层任务，插入到前面
-                if task.floor == new_task.floor:
-                    plan.task_queue.insert(i, new_task)
-                    inserted = True
+            elif target_phase == "next_up":
+                # 插入到下一个UP阶段（升序）
+                for i in range(next_up_start, len(queue)):
+                    if queue[i].floor >= task_floor:
+                        queue.insert(i, new_task)
+                        return True
+                queue.append(new_task)
+                return True
+
+        else:  # current_direction == Direction.DOWN
+            # 找到UP阶段的起始位置（第一个 floor > current_floor 的任务）
+            up_start = len(queue)
+            for i, task in enumerate(queue):
+                if task.floor > current_floor:
+                    up_start = i
                     break
 
-                # LOOK 逻辑：按方向顺序插入
-                if current_direction == Direction.UP:
-                    if new_task.floor < current_floor:
-                        # 新任务在当前楼层下方，应该在反方向时处理
-                        if task.floor < current_floor or task.floor > new_task.floor:
-                            plan.task_queue.insert(i, new_task)
-                            inserted = True
-                            break
-                    else:
-                        # 新任务在当前楼层上方，应该在当前方向时处理
-                        if task.floor > new_task.floor and task.floor >= current_floor:
-                            plan.task_queue.insert(i, new_task)
-                            inserted = True
-                            break
-                else:  # Direction.DOWN
-                    if new_task.floor > current_floor:
-                        # 新任务在当前楼层上方，应该在反方向时处理
-                        if task.floor > current_floor or task.floor < new_task.floor:
-                            plan.task_queue.insert(i, new_task)
-                            inserted = True
-                            break
-                    else:
-                        # 新任务在当前楼层下方，应该在当前方向时处理
-                        if task.floor < new_task.floor and task.floor <= current_floor:
-                            plan.task_queue.insert(i, new_task)
-                            inserted = True
-                            break
+            # 找到下一个DOWN阶段的起始位置
+            next_down_start = len(queue)
+            if up_start < len(queue):
+                prev_floor = queue[up_start].floor
+                for i in range(up_start + 1, len(queue)):
+                    if queue[i].floor < prev_floor:
+                        next_down_start = i
+                        break
+                    prev_floor = queue[i].floor
 
-            if not inserted:
-                plan.task_queue.append(new_task)
+            # 根据目标阶段插入
+            if target_phase == "current_down":
+                # 插入到当前DOWN阶段（降序）
+                for i in range(up_start):
+                    if queue[i].floor <= task_floor:
+                        queue.insert(i, new_task)
+                        return True
+                queue.insert(up_start, new_task)
+                return True
+
+            elif target_phase == "up":
+                # 插入到UP阶段（升序）
+                for i in range(up_start, next_down_start):
+                    if queue[i].floor >= task_floor:
+                        queue.insert(i, new_task)
+                        return True
+                queue.insert(next_down_start, new_task)
+                return True
+
+            elif target_phase == "next_down":
+                # 插入到下一个DOWN阶段（降序）
+                for i in range(next_down_start, len(queue)):
+                    if queue[i].floor <= task_floor:
+                        queue.insert(i, new_task)
+                        return True
+                queue.append(new_task)
+                return True
+
+        # 默认插入到末尾
+        queue.append(new_task)
+        return True
 
     def execute_next_task(self, elevator: ProxyElevator) -> None:
         """执行下一个任务"""
@@ -713,7 +830,7 @@ class Executor:
         return plan is not None and len(plan.task_queue) > 0
 
     def validate_and_clean_tasks(self, elevator: ProxyElevator, current_floor: int) -> None:
-        """✅ 修复2：验证并清除当前楼层的无效任务"""
+        """✅ 简化：只验证任务有效性，不检查方向匹配（排序已确保方向匹配）"""
         plan = self.elevator_plans.get(elevator.id)
         if plan is None or not plan.task_queue:
             return
@@ -807,11 +924,13 @@ class OptimalLookController(ElevatorController):
                 elevator_id=elevator.id, current_direction=Direction.UP
             )
 
-        # 将电梯均匀分布到不同楼层
+        # ✅ 修复：改进初始电梯分布逻辑
+        # 让电梯保持在底层待命，而不是分散到不同楼层
+        # 这样可以更快响应初始请求，避免不必要的移动
         for i, elevator in enumerate(elevators):
-            target_floor = (i * self.max_floor) // len(elevators)
-            elevator.go_to_floor(target_floor, immediate=True)
-            print(f"   电梯 E{elevator.id} 移动到初始位置 F{target_floor}")
+            # 所有电梯初始化在底层（F0）
+            # 如果需要分散，可以在第一批请求到来后自然分散
+            print(f"   电梯 E{elevator.id} 初始位置 F0")
 
     def on_passenger_call(self, passenger: ProxyPassenger, floor: ProxyFloor, direction: str) -> None:
         """乘客呼叫"""
@@ -835,6 +954,17 @@ class OptimalLookController(ElevatorController):
 
         # ✅ 修复2：验证并清除当前楼层的无效任务
         self.executor.validate_and_clean_tasks(elevator, floor.floor)
+
+        # ✅ 新增：清除任务后，立即检查是否有pending请求需要重新分配
+        pending_requests = self.request_manager.get_pending_requests()
+        if pending_requests:
+            print(f"  [REALLOC] 发现 {len(pending_requests)} 个未分配请求，立即重新分配")
+            self.dispatcher.assign_requests(self.elevators, pending_requests, self.current_tick)
+
+            # 启动空闲电梯
+            for elev in self.elevators:
+                if elev.is_idle and self.executor.has_tasks(elev):
+                    self.executor.execute_next_task(elev)
 
         # 设置下一个目标楼层（不使用 immediate=True，让系统先处理乘客）
         # 在 on_passenger_board/alight 中也会设置目标，但如果没有乘客上下梯，
