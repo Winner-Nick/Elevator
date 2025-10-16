@@ -393,7 +393,8 @@ class ElevatorController(ABC):
             self.current_tick = 0
             # 获取新的初始状态
             state = self.api_client.get_state()
-            self._update_wrappers(state)
+            # 重置时允许重新创建电梯和楼层（因为可能切换到不同配置的流量文件）
+            self._update_wrappers(state, init=True)
 
             # 更新流量信息（切换到新流量文件后需要重新获取最大tick）
             self._update_traffic_info()

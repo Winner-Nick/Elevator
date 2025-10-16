@@ -8,6 +8,7 @@ class ElevatorVisualization {
         this.history = [];
         this.metadata = null;
         this.currentIndex = 0;
+        this.lastRenderedIndex = -1; // 跟踪上次渲染的索引，避免重复显示事件
         this.isPlaying = false;
         this.playbackSpeed = 1.0;
         this.playbackInterval = null;
@@ -134,6 +135,9 @@ class ElevatorVisualization {
             case 'history':
                 this.history = message.data;
                 this.currentIndex = 0;
+                this.lastRenderedIndex = -1;
+                // 清空事件日志
+                document.getElementById('eventList').innerHTML = '';
                 this.updateProgressBar();
                 this.renderCurrentState();
                 this.addEventLog('系统', `历史数据加载完成，共 ${this.history.length} 帧`);
@@ -384,6 +388,9 @@ class ElevatorVisualization {
     reset() {
         this.pause();
         this.currentIndex = 0;
+        this.lastRenderedIndex = -1;
+        // 清空事件日志
+        document.getElementById('eventList').innerHTML = '';
         this.renderCurrentState();
         this.updateProgressBar();
     }
@@ -423,15 +430,31 @@ class ElevatorVisualization {
         // 更新统计信息
         this.updateStats(state);
 
-        // 更新事件日志（只添加新事件）
-        if (state.events && state.events.length > 0) {
+        // 更新事件日志 - 只在前进播放时添加新事件，避免拖动进度条时重复显示
+        if (state.events && state.events.length > 0 && this.currentIndex > (this.lastRenderedIndex || -1)) {
+            // 同一tick的所有事件合并为一条日志
+            const eventDescriptions = [];
             state.events.forEach(event => {
                 const result = this.formatEventDescription(event);
                 if (result) {
-                    this.addEventLog(`Tick ${state.tick}`, result.description, result.type);
+                    eventDescriptions.push(result.description);
                 }
             });
+
+            if (eventDescriptions.length > 0) {
+                // 如果事件太多，合并显示
+                if (eventDescriptions.length > 3) {
+                    const summary = `${eventDescriptions.length}个事件: ${eventDescriptions.slice(0, 2).join('; ')}...`;
+                    this.addEventLog(`Tick ${state.tick}`, summary, 'system');
+                } else {
+                    eventDescriptions.forEach(desc => {
+                        this.addEventLog(`Tick ${state.tick}`, desc, 'system');
+                    });
+                }
+            }
         }
+
+        this.lastRenderedIndex = this.currentIndex;
     }
 
     /**
@@ -440,7 +463,7 @@ class ElevatorVisualization {
     renderBuilding(state) {
         const buildingView = document.getElementById('buildingView');
 
-        // 确定楼层数
+        // 动态确定楼层数和电梯数（从实际数据中获取）
         const numFloors = state.floors.length;
         const numElevators = state.elevators.length;
 
@@ -453,10 +476,16 @@ class ElevatorVisualization {
             const floorRow = document.createElement('div');
             floorRow.className = 'floor-row';
 
-            // 楼层标签
+            // 楼层标签 - F0显示为"G"（Ground），其他显示实际楼层数+1
             const floorLabel = document.createElement('div');
             floorLabel.className = 'floor-label';
-            floorLabel.textContent = `F${floorNum}`;
+            if (floorNum === 0) {
+                floorLabel.textContent = 'G'; // Ground floor
+                floorLabel.title = '地面层 (Ground Floor)';
+            } else {
+                floorLabel.textContent = `${floorNum}F`;
+                floorLabel.title = `${floorNum}层`;
+            }
             floorRow.appendChild(floorLabel);
 
             // 电梯井道区
@@ -528,7 +557,8 @@ class ElevatorVisualization {
                         if (passenger) {
                             const badge = document.createElement('span');
                             badge.className = 'passenger-badge';
-                            badge.textContent = `P${passengerId}→F${passenger.destination}`;
+                            const destLabel = passenger.destination === 0 ? 'G' : `${passenger.destination}F`;
+                            badge.textContent = `P${passengerId}→${destLabel}`;
                             badge.title = `到达时间: Tick ${passenger.arrive_tick}`;
                             upDiv.appendChild(badge);
                         }
@@ -548,7 +578,8 @@ class ElevatorVisualization {
                         if (passenger) {
                             const badge = document.createElement('span');
                             badge.className = 'passenger-badge';
-                            badge.textContent = `P${passengerId}→F${passenger.destination}`;
+                            const destLabel = passenger.destination === 0 ? 'G' : `${passenger.destination}F`;
+                            badge.textContent = `P${passengerId}→${destLabel}`;
                             badge.title = `到达时间: Tick ${passenger.arrive_tick}`;
                             downDiv.appendChild(badge);
                         }
@@ -627,19 +658,31 @@ class ElevatorVisualization {
 
         switch (event.type) {
             case 'up_button_pressed':
-                description = `乘客P${data.passenger}在F${data.floor}按下上行按钮`;
+                {
+                    const floorLabel = data.floor === 0 ? 'G' : `${data.floor}F`;
+                    description = `乘客P${data.passenger}在${floorLabel}按下上行按钮`;
+                }
                 break;
             case 'down_button_pressed':
-                description = `乘客P${data.passenger}在F${data.floor}按下下行按钮`;
+                {
+                    const floorLabel = data.floor === 0 ? 'G' : `${data.floor}F`;
+                    description = `乘客P${data.passenger}在${floorLabel}按下下行按钮`;
+                }
                 break;
             case 'stopped_at_floor':
-                description = `电梯E${data.elevator}停靠在F${data.floor}`;
+                {
+                    const floorLabel = data.floor === 0 ? 'G' : `${data.floor}F`;
+                    description = `电梯E${data.elevator}停靠在${floorLabel}`;
+                }
                 break;
             case 'passenger_board':
                 description = `乘客P${data.passenger}登上电梯E${data.elevator}`;
                 break;
             case 'passenger_alight':
-                description = `乘客P${data.passenger}从电梯E${data.elevator}下车，到达F${data.floor}`;
+                {
+                    const floorLabel = data.floor === 0 ? 'G' : `${data.floor}F`;
+                    description = `乘客P${data.passenger}从电梯E${data.elevator}下车，到达${floorLabel}`;
+                }
                 break;
             case 'idle':
                 description = `电梯E${data.elevator}进入空闲状态`;
