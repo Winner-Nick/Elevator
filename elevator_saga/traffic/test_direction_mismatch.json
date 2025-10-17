@@ -1,0 +1,14 @@
+{
+  "floors": 5,
+  "elevators": 1,
+  "speed": 2,
+  "capacity": 4,
+  "passengers": [
+    {
+      "id": 1,
+      "origin": 0,
+      "destination": 1,
+      "time": 0
+    }
+  ]
+}

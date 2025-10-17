@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 """
-LOOK V2 电梯调度算法 - 实时决策版本
-简化策略：不维护任务队列，在每次停靠时动态决定下一个目标楼层
-关键：正确处理方向匹配约束，确保100%完成率
+LOOK V2 电梯调度算法 - 简化版本
+
+核心特点：
+1. 实时决策：每次停靠时动态选择下一个目标楼层，不维护任务队列
+2. 双策略：
+   - 空闲优先：电梯为空时，去最近的有需求楼层
+   - LOOK扫描：电梯有乘客时，遵循扫描方向（向上/向下）
+3. 方向匹配：严格遵守LOOK算法的方向匹配约束
+   - 向上扫描时只接向上的乘客（up_queue）
+   - 向下扫描时只接向下的乘客（down_queue）
+4. 简洁性：避免复杂的方向转换逻辑，让算法自然循环
+
+设计原则：
+- 代码简洁，逻辑清晰
+- 避免死循环和卡死
+- 不返回当前楼层（会导致死循环）
+- 让电梯按LOOK算法自然移动，最终会服务所有乘客
 """
 from typing import List, Optional, Set
 from elevator_saga.client.base_controller import ElevatorController
@@ -93,18 +107,6 @@ class LookV2Controller(ElevatorController):
         if waiting_floors:
             print(f"  等待乘客: {', '.join(waiting_floors)}")
 
-        # 检查当前楼层是否有方向不匹配的乘客
-        current_floor_status = []
-        if current_floor in up_targets:
-            current_floor_status.append(f"up_queue({len(floor.up_queue)})")
-        if current_floor in down_targets:
-            current_floor_status.append(f"down_queue({len(floor.down_queue)})")
-        if current_floor_status:
-            print(f"  [!] 当前楼层F{current_floor}仍有等待: {', '.join(current_floor_status)} (可能方向不匹配)")
-
-        # 不移除当前楼层，改为在选择逻辑中智能处理
-        # 注意：如果当前楼层仍在targets中，说明有方向不匹配的乘客等待
-
         if self.debug:
             print(f"  当前方向: {current_direction.value}, UP目标: {sorted(up_targets)}, DOWN目标: {sorted(down_targets)}")
 
@@ -129,6 +131,7 @@ class LookV2Controller(ElevatorController):
                 self.elevator_scan_direction[elevator.id] = Direction.UP
             elif next_floor < current_floor:
                 self.elevator_scan_direction[elevator.id] = Direction.DOWN
+            #  next_floor == current_floor 的情况已在选择逻辑中处理
 
             # 移动到下一个楼层
             elevator.go_to_floor(next_floor)
@@ -147,32 +150,56 @@ class LookV2Controller(ElevatorController):
         """
         按LOOK算法选择下一个目标楼层
 
-        改进：
-        1. 如果电梯为空（is_empty=True），直接去接最近的乘客，不遵循LOOK方向
-        2. 否则按标准LOOK算法选择目标
-        3. 特殊处理当前楼层有反方向乘客的情况
+        参数：
+            current_floor: 电梯当前所在楼层
+            current_direction: 电梯当前扫描方向（UP/DOWN）
+            up_targets: 需要向上的乘客所在楼层集合
+            down_targets: 需要向下的乘客所在楼层集合
+            is_empty: 电梯是否为空
 
-        LOOK算法核心：
-        1. 沿当前方向扫描，到达边界后转向
-        2. 优先选择当前方向上最近的目标
-        3. 如果当前方向没有目标，转向并选择反方向最近的目标
+        返回：
+            下一个目标楼层，如果没有目标则返回None
 
-        关键：只有方向匹配的乘客才能上梯
-        - 向上扫描时，只能去接需要向上的乘客（up_targets）
-        - 向下扫描时，只能去接需要向下的乘客（down_targets）
+        策略说明：
+        1. 空闲优先（is_empty=True）：
+           - 去最近的有需求楼层（不考虑方向）
+           - 避免返回当前楼层（会死循环）
+
+        2. LOOK扫描（is_empty=False）：
+           - 向上扫描：优先去上方的up_targets，然后是上方的down_targets
+           - 向下扫描：优先去下方的down_targets，然后是下方的up_targets
+           - 当前方向没有目标时，转向扫描反方向
+           - 严格遵守方向匹配：只接与扫描方向一致的乘客
+
+        关键约束：
+        - 永远不返回当前楼层（current_floor），避免死循环
+        - 让电梯自然移动，按LOOK算法循环服务所有乘客
         """
         # === 策略1：空闲优先 - 直接去接最近的乘客 ===
         if is_empty:
             # 合并所有目标
             all_targets = up_targets | down_targets
-            # 移除当前楼层（避免原地不动）
-            all_targets.discard(current_floor)
 
             if not all_targets:
                 return None
 
             # 选择距离最近的楼层
             nearest = min(all_targets, key=lambda f: abs(f - current_floor))
+
+            # 特殊处理：如果最近的楼层是当前楼层，需要移动一层触发方向改变
+            if nearest == current_floor:
+                # 检查当前楼层的需求方向
+                if current_floor in down_targets and current_floor > 0:
+                    # 有向下需求，去下一层
+                    if self.debug:
+                        print(f"  [IDLE策略] 当前楼层F{nearest}有down需求，先去F{current_floor-1}")
+                    return current_floor - 1
+                elif current_floor in up_targets and current_floor < self.max_floor:
+                    # 有向上需求，去上一层
+                    if self.debug:
+                        print(f"  [IDLE策略] 当前楼层F{nearest}有up需求，先去F{current_floor+1}")
+                    return current_floor + 1
+
             if self.debug:
                 print(f"  [IDLE策略] 选择最近楼层: F{nearest} (距离={abs(nearest - current_floor)})")
             return nearest
@@ -192,28 +219,12 @@ class LookV2Controller(ElevatorController):
                 return max(upper_down)  # 去最高的，到达后转向向下
 
             # 3. 上方都没有需求，转向向下
-            #    首先检查当前楼层是否有down_queue（方向不匹配的情况）
-            if current_floor in down_targets:
-                if self.debug:
-                    print(f"  [方向转换] 当前楼层F{current_floor}有down_queue，需要转向向下")
-                # 向下移动一层后再回来接乘客，或者直接选择下方的目标
-                lower_down = [f for f in down_targets if f < current_floor]
-                if lower_down:
-                    # 有下方的down_targets，直接去最近的
-                    return max(lower_down)
-                elif current_floor > 0:
-                    # 只有当前楼层有down_queue，去下一层然后回来
-                    return current_floor - 1
-                else:
-                    # 在底层且只有当前楼层，去上一层然后回来
-                    return current_floor + 1
-
-            #    选择下方的 down_targets（从高到低扫描）
+            #    选择下方的 down_targets（从高到低扫描），排除当前楼层
             lower_down = [f for f in down_targets if f < current_floor]
             if lower_down:
                 return max(lower_down)  # 最高的下层楼层
 
-            # 4. 最后尝试下方的 up_targets
+            # 4. 最后尝试下方的 up_targets，排除当前楼层
             lower_up = [f for f in up_targets if f < current_floor]
             if lower_up:
                 return min(lower_up)  # 最低的下层楼层
@@ -232,28 +243,12 @@ class LookV2Controller(ElevatorController):
                 return min(lower_up)  # 去最低的，到达后转向向上
 
             # 3. 下方都没有需求，转向向上
-            #    首先检查当前楼层是否有up_queue（方向不匹配的情况）
-            if current_floor in up_targets:
-                if self.debug:
-                    print(f"  [方向转换] 当前楼层F{current_floor}有up_queue，需要转向向上")
-                # 向上移动一层后再回来接乘客，或者直接选择上方的目标
-                upper_up = [f for f in up_targets if f > current_floor]
-                if upper_up:
-                    # 有上方的up_targets，直接去最近的
-                    return min(upper_up)
-                elif current_floor < self.max_floor:
-                    # 只有当前楼层有up_queue，去上一层然后回来
-                    return current_floor + 1
-                else:
-                    # 在顶层且只有当前楼层，去下一层然后回来
-                    return current_floor - 1
-
-            #    选择上方的 up_targets（从低到高扫描）
+            #    选择上方的 up_targets（从低到高扫描），排除当前楼层
             upper_up = [f for f in up_targets if f > current_floor]
             if upper_up:
                 return min(upper_up)  # 最低的上层楼层
 
-            # 4. 最后尝试上方的 down_targets
+            # 4. 最后尝试上方的 down_targets，排除当前楼层
             upper_down = [f for f in down_targets if f > current_floor]
             if upper_down:
                 return max(upper_down)  # 最高的上层楼层
@@ -264,10 +259,35 @@ class LookV2Controller(ElevatorController):
         """
         电梯空闲 - 重新扫描是否有需求
 
-        可能有新请求到来，但电梯已经空闲
+        特殊处理：如果当前楼层有乘客等待但方向不匹配，移动一层后回来接乘客
+        这样可以触发方向改变，避免死循环
         """
         if self.debug:
             print(f"[IDLE] E{elevator.id} 在 F{elevator.current_floor} 空闲")
+
+        current_floor = elevator.current_floor
+        current_floor_obj = self.floors[current_floor]
+        current_direction = self.elevator_scan_direction.get(elevator.id, Direction.UP)
+
+        # 检查当前楼层是否有方向不匹配的乘客
+        has_up_queue = len(current_floor_obj.up_queue) > 0
+        has_down_queue = len(current_floor_obj.down_queue) > 0
+
+        # 如果当前楼层有乘客，但方向不匹配，移动一层后回来
+        if has_up_queue and current_direction == Direction.DOWN and current_floor < self.max_floor:
+            # 需要向上，但当前方向向下，去上一层
+            target = current_floor + 1
+            self.elevator_scan_direction[elevator.id] = Direction.UP
+            elevator.go_to_floor(target)
+            print(f"  [方向修正] F{current_floor}有up_queue，去F{target}后回来 (切换为UP)")
+            return
+        elif has_down_queue and current_direction == Direction.UP and current_floor > 0:
+            # 需要向下，但当前方向向上，去下一层
+            target = current_floor - 1
+            self.elevator_scan_direction[elevator.id] = Direction.DOWN
+            elevator.go_to_floor(target)
+            print(f"  [方向修正] F{current_floor}有down_queue，去F{target}后回来 (切换为DOWN)")
+            return
 
         # 复用停靠逻辑，重新扫描需求
         floor = self.floors[elevator.current_floor]
