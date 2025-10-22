@@ -54,6 +54,13 @@ class LookV2Controller(ElevatorController):
             self.elevator_scan_direction[elevator.id] = Direction.UP
             print(f"  电梯 E{elevator.id} 初始化，扫描方向: UP")
 
+        # 关键：初始化后立即分配任务给电梯，避免server停滞
+        # 这对于流水线测试环境至关重要
+        print("  触发初始调度...")
+        for elevator in elevators:
+            # 调用on_elevator_idle来处理初始状态
+            self.on_elevator_idle(elevator)
+
     def on_passenger_call(self, passenger: ProxyPassenger, floor: ProxyFloor, direction: str) -> None:
         """乘客呼叫 - 记录乘客目的地信息"""
         print(f"[CALL] 乘客 {passenger.id}: F{passenger.origin} -> F{passenger.destination}")
