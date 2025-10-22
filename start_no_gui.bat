@@ -45,11 +45,11 @@ echo [SUCCESS] Dependencies installed
 echo.
 
 echo [STEP 2/3] Checking required packages...
-python -c "import numpy, flask" >NUL 2>&1
+python -c "import numpy; import flask" >NUL 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Required packages (numpy, flask) are not available
     echo Attempting to install again...
-    pip install numpy flask >NUL 2>&1
+    pip install numpy flask
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to install required packages
         exit /b 1
