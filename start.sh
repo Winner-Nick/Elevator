@@ -83,7 +83,12 @@ echo "========================================"
 echo ""
 
 # Run the LOOK V2 algorithm
-python3 -m elevator_saga.client_examples.look_v2_example
+# Try using python first (which might be in the venv), then fall back to python3
+if command -v python >/dev/null 2>&1; then
+    python -m elevator_saga.client_examples.look_v2_example
+else
+    python3 -m elevator_saga.client_examples.look_v2_example
+fi
 
 # Check if the algorithm ran successfully
 if [ $? -ne 0 ]; then

@@ -70,6 +70,7 @@ echo ========================================
 echo.
 
 REM Run the LOOK V2 algorithm
+REM Try with current Python environment (handles venv automatically)
 python -m elevator_saga.client_examples.look_v2_example
 
 REM Check if the algorithm ran successfully
