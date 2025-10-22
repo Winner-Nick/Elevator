@@ -52,6 +52,7 @@ class EventType(Enum):
     PASSING_FLOOR = "passing_floor"
     STOPPED_AT_FLOOR = "stopped_at_floor"
     ELEVATOR_APPROACHING = "elevator_approaching"  # 电梯即将经过某层楼（START_DOWN状态）
+    ELEVATOR_MOVE = "elevator_move"  # 电梯移动事件
     IDLE = "idle"
     PASSENGER_BOARD = "passenger_board"
     PASSENGER_ALIGHT = "passenger_alight"

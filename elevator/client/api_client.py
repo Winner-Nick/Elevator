@@ -30,6 +30,7 @@ class ElevatorAPIClient:
         self._cached_state: Optional[SimulationState] = None
         self._cached_tick: int = -1
         self._tick_processed: bool = False  # 标记当前tick是否已处理完成
+        self._client_id: Optional[str] = None  # 客户端ID，用于识别在模拟器中的身份
 
         # 设置无代理的urllib opener用于绕过代理
         self._setup_no_proxy_opener()
@@ -41,6 +42,44 @@ class ElevatorAPIClient:
         proxy_handler = urllib.request.ProxyHandler({})
         # 创建不使用代理的opener
         self.opener = urllib.request.build_opener(proxy_handler)
+
+    def register_client(self, client_type: str = "algorithm") -> bool:
+        """注册客户端为算法或GUI客户端
+
+        Args:
+            client_type: 客户端类型，"algorithm" 或 "gui"
+
+        Returns:
+            True 如果注册成功，False 否则
+        """
+        try:
+            url = f"{self.base_url}/api/client/register"
+
+            # 注册请求需要在请求头中指定客户端类型
+            headers = {
+                "Content-Type": "application/json",
+                "X-Client-Type": client_type
+            }
+
+            req = urllib.request.Request(
+                url,
+                data=json.dumps({}).encode("utf-8"),
+                headers=headers
+            )
+
+            with self.opener.open(req, timeout=30) as response:
+                response_data = json.loads(response.read().decode("utf-8"))
+                success = bool(response_data.get("success", False))
+                if success:
+                    client_id = response_data.get("client_id")
+                    self._client_id = client_id  # 保存客户端ID
+                    debug_log(f"Client registered as {client_type}: {client_id}")
+                else:
+                    debug_log(f"Failed to register client: {response_data.get('error')}")
+                return success
+        except Exception as e:
+            debug_log(f"Client registration failed: {e}")
+            return False
 
     def get_state(self, force_reload: bool = False) -> SimulationState:
         """获取模拟状态
@@ -74,14 +113,19 @@ class ElevatorAPIClient:
             metrics_data = response_data.get("metrics", {})
             if metrics_data:
                 # 转换为PerformanceMetrics格式
+                # 服务端字段映射：
+                # - average_floor_wait_time → average_wait_time
+                # - p95_floor_wait_time → p95_wait_time
+                # - average_arrival_wait_time → average_system_time
+                # - p95_arrival_wait_time → p95_system_time
                 metrics = PerformanceMetrics(
-                    completed_passengers=metrics_data.get("done", 0),
-                    total_passengers=metrics_data.get("total", 0),
-                    average_wait_time=metrics_data.get("avg_wait", 0),
-                    p95_wait_time=metrics_data.get("p95_wait", 0),
-                    average_system_time=metrics_data.get("avg_system", 0),
-                    p95_system_time=metrics_data.get("p95_system", 0),
-                    # total_energy_consumption=metrics_data.get("energy_total", 0),
+                    completed_passengers=metrics_data.get("completed_passengers", 0),
+                    total_passengers=metrics_data.get("total_passengers", 0),
+                    average_wait_time=metrics_data.get("average_floor_wait_time", 0.0),
+                    p95_wait_time=metrics_data.get("p95_floor_wait_time", 0.0),
+                    average_system_time=metrics_data.get("average_arrival_wait_time", 0.0),
+                    p95_system_time=metrics_data.get("p95_arrival_wait_time", 0.0),
+                    # total_energy_consumption=metrics_data.get("total_energy_consumption", 0.0),
                 )
             else:
                 metrics = PerformanceMetrics()
@@ -110,7 +154,11 @@ class ElevatorAPIClient:
 
     def step(self, ticks: int = 1) -> StepResponse:
         """执行步进"""
-        response_data = self._send_post_request("/api/step", {"ticks": ticks})
+        # 需要发送current_tick给服务器，以便模拟器正确推进时间
+        response_data = self._send_post_request("/api/step", {
+            "ticks": ticks,
+            "current_tick": self._cached_tick if self._cached_tick >= 0 else 0
+        })
 
         if "error" not in response_data:
             # 使用服务端返回的真实数据
@@ -238,7 +286,11 @@ class ElevatorAPIClient:
 
         # debug_log(f"POST {url} with data: {data}")
 
-        req = urllib.request.Request(url, data=request_body, headers={"Content-Type": "application/json"})
+        headers = {"Content-Type": "application/json"}
+        if self._client_id:
+            headers["X-Client-ID"] = self._client_id
+
+        req = urllib.request.Request(url, data=request_body, headers=headers)
 
         try:
             with self.opener.open(req, timeout=600) as response:

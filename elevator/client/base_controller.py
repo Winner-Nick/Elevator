@@ -215,6 +215,10 @@ class ElevatorController(ABC):
     def _run_event_driven_simulation(self) -> None:
         """运行事件驱动的模拟"""
         try:
+            # 首先注册为算法客户端
+            if not self.api_client.register_client("algorithm"):
+                print("Failed to register as algorithm client, but continuing...")
+
             # 获取初始状态并初始化，默认从0开始
             try:
                 state = self.api_client.get_state()
@@ -313,6 +317,17 @@ class ElevatorController(ABC):
             debug_log(f"Error updating traffic info: {e}")
             self.current_traffic_max_tick = 0
 
+    def on_elevator_move(self, elevator: ProxyElevator, direction: str, current_floor: int) -> None:
+        """
+        电梯移动事件回调 - 可选实现
+
+        Args:
+            elevator: 移动的电梯代理对象
+            direction: 移动方向 ("up" 或 "down")
+            current_floor: 当前楼层
+        """
+        pass
+
     def _handle_single_event(self, event: SimulationEvent) -> None:
         """处理单个事件"""
         if event.type == EventType.UP_BUTTON_PRESSED:
@@ -384,6 +399,16 @@ class ElevatorController(ABC):
                 passenger_proxy = ProxyPassenger(passenger_id, self.api_client)
                 floor_proxy = ProxyFloor(floor_id, self.api_client)
                 self.on_passenger_alight(elevator_proxy, passenger_proxy, floor_proxy)
+
+        elif event.type == EventType.ELEVATOR_MOVE:
+            elevator_id = event.data.get("elevator")
+            direction = event.data.get("direction")
+            current_floor = event.data.get("current_floor")
+            if elevator_id is not None and direction is not None and current_floor is not None:
+                elevator_proxy = ProxyElevator(elevator_id, self.api_client)
+                # 服务端发送的direction是字符串，直接使用
+                direction_str = direction if isinstance(direction, str) else direction.value
+                self.on_elevator_move(elevator_proxy, direction_str, current_floor)
 
     def _reset_and_reinit(self) -> None:
         """重置并重新初始化"""
