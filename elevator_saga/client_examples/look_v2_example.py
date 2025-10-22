@@ -54,13 +54,6 @@ class LookV2Controller(ElevatorController):
             self.elevator_scan_direction[elevator.id] = Direction.UP
             print(f"  电梯 E{elevator.id} 初始化，扫描方向: UP")
 
-        # 关键：初始化后立即分配任务给电梯，避免server停滞
-        # 这对于流水线测试环境至关重要
-        print("  触发初始调度...")
-        for elevator in elevators:
-            # 调用on_elevator_idle来处理初始状态
-            self.on_elevator_idle(elevator)
-
     def on_passenger_call(self, passenger: ProxyPassenger, floor: ProxyFloor, direction: str) -> None:
         """乘客呼叫 - 记录乘客目的地信息"""
         print(f"[CALL] 乘客 {passenger.id}: F{passenger.origin} -> F{passenger.destination}")
@@ -144,9 +137,16 @@ class LookV2Controller(ElevatorController):
             elevator.go_to_floor(next_floor)
             print(f"  -> E{elevator.id} 前往 F{next_floor} (方向: {self.elevator_scan_direction[elevator.id].value})")
         else:
-            # 没有任何目标，给电梯一个默认待命位置
-            # 这对于流水线测试环境很重要，避免服务器停滞
-            print(f"  -> E{elevator.id} 无目标，保持空闲")
+            # 没有任何目标时，给电梯分配待命位置
+            # 这对于流水线测试环境至关重要，避免服务器停滞在"no tick"状态
+            if current_floor == 0:
+                # 在底层，向上移动
+                elevator.go_to_floor(1)
+                print(f"  -> E{elevator.id} 无目标，待命移动到F1")
+            else:
+                # 在其他楼层，返回底层
+                elevator.go_to_floor(0)
+                print(f"  -> E{elevator.id} 无目标，待命返回F0")
 
     def _select_next_floor_look(
         self,
@@ -301,21 +301,6 @@ class LookV2Controller(ElevatorController):
         # 复用停靠逻辑，重新扫描需求
         floor = self.floors[elevator.current_floor]
         self.on_elevator_stopped(elevator, floor)
-
-        # 如果on_elevator_stopped没有给电梯分配目标（返回None），
-        # 给电梯一个默认目标以避免服务器停滞
-        # 这在流水线测试环境中很重要
-        if elevator.target_floor is None or elevator.target_floor == current_floor:
-            # 没有目标，给一个默认目标让电梯移动
-            # 这样可以触发时间推进，避免服务器返回"no tick"
-            if current_floor == 0:
-                # 在底层，向上移动
-                elevator.go_to_floor(1)
-                print(f"  [空闲待命] E{elevator.id} 无目标，从F0移动到F1")
-            else:
-                # 在其他楼层，返回底层
-                elevator.go_to_floor(0)
-                print(f"  [空闲待命] E{elevator.id} 无目标，返回F0")
 
     def on_passenger_board(self, elevator: ProxyElevator, passenger: ProxyPassenger) -> None:
         """乘客上梯"""
