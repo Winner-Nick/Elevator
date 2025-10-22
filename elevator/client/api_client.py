@@ -33,15 +33,16 @@ class ElevatorAPIClient:
         self._client_id: Optional[str] = None  # 客户端ID，用于识别在模拟器中的身份
 
         # 设置无代理的urllib opener用于绕过代理
-        self._setup_no_proxy_opener()
+        # self._setup_no_proxy_opener()
+        self.opener = urllib.request.build_opener()  # 使用默认opener
         debug_log(f"API Client initialized for {self.base_url}")
 
-    def _setup_no_proxy_opener(self):
-        """设置无代理的urllib opener"""
-        # 创建一个空的代理处理器（绕过系统代理设置）
-        proxy_handler = urllib.request.ProxyHandler({})
-        # 创建不使用代理的opener
-        self.opener = urllib.request.build_opener(proxy_handler)
+    # def _setup_no_proxy_opener(self):
+    #     """设置无代理的urllib opener"""
+    #     # 创建一个空的代理处理器（绕过系统代理设置）
+    #     proxy_handler = urllib.request.ProxyHandler({})
+    #     # 创建不使用代理的opener
+    #     self.opener = urllib.request.build_opener(proxy_handler)
 
     def register_client(self, client_type: str = "algorithm") -> bool:
         """注册客户端为算法或GUI客户端
