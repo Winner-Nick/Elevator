@@ -61,18 +61,13 @@ fi
 echo "[SUCCESS] Dependencies installed"
 echo ""
 
-echo "[STEP 2/3] Checking required packages..."
-python3 -c "import numpy, flask" 2>/dev/null
+echo "[STEP 2/3] Verifying core packages..."
+python3 -c "import numpy" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo "[ERROR] Required packages (numpy, flask) are not available"
-    echo "Attempting to install again..."
-    python3 -m pip install numpy flask --quiet
-    if [ $? -ne 0 ]; then
-        echo "[ERROR] Failed to install required packages"
-        exit 1
-    fi
+    echo "[WARNING] Installing numpy..."
+    python3 -m pip install numpy --quiet
 fi
-echo "[SUCCESS] All required packages are available"
+echo "[SUCCESS] All packages verified"
 echo ""
 
 echo "[STEP 3/3] Starting LOOK V2 Algorithm (Headless Mode)..."

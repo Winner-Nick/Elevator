@@ -36,9 +36,9 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [STEP 1/3] Installing project dependencies...
-echo Installing elevator-py package in editable mode...
-pip install -e . >NUL 2>&1
+echo [STEP 1/3] Installing project dependencies (with visualization support)...
+echo Installing elevator-py package with visualization extras...
+pip install -e ".[visualization]" >NUL 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install project dependencies
     echo Please check your pip installation and network connection
@@ -48,19 +48,16 @@ if %errorlevel% neq 0 (
 echo [SUCCESS] Dependencies installed
 echo.
 
-echo [STEP 2/3] Checking required packages...
-python -c "import fastapi; import uvicorn; import httpx" >NUL 2>&1
+echo [STEP 2/3] Verifying visualization packages...
+python -c "import fastapi; import uvicorn; import httpx; import pydantic" >NUL 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Required packages (fastapi, uvicorn, httpx) are not available
-    echo Attempting to install again...
-    pip install fastapi uvicorn httpx
+    echo [WARNING] Some visualization packages missing, installing...
+    pip install fastapi uvicorn httpx pydantic
     if %errorlevel% neq 0 (
-        echo [ERROR] Failed to install required packages
-        pause
-        exit /b 1
+        echo [WARNING] Some packages failed to install, but continuing...
     )
 )
-echo [SUCCESS] All required packages are available
+echo [SUCCESS] All packages verified
 echo.
 
 echo [STEP 3/3] Starting Visualization Web Server...

@@ -1,0 +1,1051 @@
+{
+  "metadata": {
+    "start_time": "2025-10-22T20:54:11.507311",
+    "algorithm": "LookV2Controller",
+    "elevators": 2,
+    "floors": 6,
+    "total_passengers": 0,
+    "completed_passengers": 0,
+    "end_time": "2025-10-22T20:54:42.322082",
+    "total_ticks": 11
+  },
+  "history": [
+    {
+      "tick": 1,
+      "timestamp": "2025-10-22T20:54:11.598903",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 0,
+          "target_floor": 0,
+          "direction": "stopped",
+          "status": "stopped",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 0,
+          "target_floor": 0,
+          "direction": "stopped",
+          "status": "stopped",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 0
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 1,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "down_button_pressed",
+          "data": {
+            "floor": 2,
+            "passenger": 1
+          }
+        },
+        {
+          "type": "idle",
+          "data": {
+            "elevator": 0,
+            "floor": 0
+          }
+        },
+        {
+          "type": "idle",
+          "data": {
+            "elevator": 1,
+            "floor": 0
+          }
+        }
+      ]
+    },
+    {
+      "tick": 2,
+      "timestamp": "2025-10-22T20:54:11.618260",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "start_up",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "start_up",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 0
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 1,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 0.0,
+            "to_position": 0.1,
+            "direction": "up",
+            "status": "start_up"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 0.0,
+            "to_position": 0.1,
+            "direction": "up",
+            "status": "start_up"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 3,
+      "timestamp": "2025-10-22T20:54:11.632050",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 0
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 2,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "down_button_pressed",
+          "data": {
+            "floor": 2,
+            "passenger": 2
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 0.1,
+            "to_position": 0.3,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 0.1,
+            "to_position": 0.3,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 4,
+      "timestamp": "2025-10-22T20:54:11.645986",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 0
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 2,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 0.3,
+            "to_position": 0.5,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 0.3,
+            "to_position": 0.5,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 5,
+      "timestamp": "2025-10-22T20:54:11.660787",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 0
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 3,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "down_button_pressed",
+          "data": {
+            "floor": 4,
+            "passenger": 3
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 0.5,
+            "to_position": 0.7,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 0.5,
+            "to_position": 0.7,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 6,
+      "timestamp": "2025-10-22T20:54:11.674881",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 0,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 0
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 4,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "down_button_pressed",
+          "data": {
+            "floor": 3,
+            "passenger": 4
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 0.7,
+            "to_position": 0.9,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_approaching",
+          "data": {
+            "elevator": 0,
+            "floor": 1,
+            "direction": "up"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 0.7,
+            "to_position": 0.9,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_approaching",
+          "data": {
+            "elevator": 1,
+            "floor": 1,
+            "direction": "up"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 7,
+      "timestamp": "2025-10-22T20:54:11.684680",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 1
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 5,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "down_button_pressed",
+          "data": {
+            "floor": 5,
+            "passenger": 5
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 0.9,
+            "to_position": 1.1,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "passing_floor",
+          "data": {
+            "elevator": 0,
+            "floor": 1,
+            "direction": "up"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 0.9,
+            "to_position": 1.1,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "passing_floor",
+          "data": {
+            "elevator": 1,
+            "floor": 1,
+            "direction": "up"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 8,
+      "timestamp": "2025-10-22T20:54:11.693173",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 1
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 5,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 1.1,
+            "to_position": 1.3,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 1.1,
+            "to_position": 1.3,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 9,
+      "timestamp": "2025-10-22T20:54:11.716660",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 1
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 6,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "down_button_pressed",
+          "data": {
+            "floor": 4,
+            "passenger": 6
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 1.3,
+            "to_position": 1.5,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 1.3,
+            "to_position": 1.5,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 10,
+      "timestamp": "2025-10-22T20:54:11.742116",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 1,
+          "target_floor": 2,
+          "direction": "up",
+          "status": "constant_speed",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 1
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 2
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 1
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 7,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "down_button_pressed",
+          "data": {
+            "floor": 1,
+            "passenger": 7
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 1.5,
+            "to_position": 1.7,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 1.5,
+            "to_position": 1.7,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        }
+      ]
+    },
+    {
+      "tick": 0,
+      "timestamp": "2025-10-22T20:54:12.268850",
+      "elevators": [
+        {
+          "id": 0,
+          "current_floor": 0,
+          "target_floor": 0,
+          "direction": "stopped",
+          "status": "stopped",
+          "passengers": [],
+          "load": 0
+        },
+        {
+          "id": 1,
+          "current_floor": 0,
+          "target_floor": 0,
+          "direction": "stopped",
+          "status": "stopped",
+          "passengers": [],
+          "load": 0
+        }
+      ],
+      "floors": [
+        {
+          "floor": 0,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 1,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 2,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 3,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 4,
+          "up_waiting": 0,
+          "down_waiting": 0
+        },
+        {
+          "floor": 5,
+          "up_waiting": 0,
+          "down_waiting": 0
+        }
+      ],
+      "metrics": {
+        "completed_passengers": 0,
+        "total_passengers": 0,
+        "average_wait_time": 0,
+        "p95_wait_time": 0,
+        "average_system_time": 0,
+        "p95_system_time": 0
+      },
+      "events": [
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 0,
+            "from_position": 1.7,
+            "to_position": 1.9,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_approaching",
+          "data": {
+            "elevator": 0,
+            "floor": 2,
+            "direction": "up"
+          }
+        },
+        {
+          "type": "elevator_move",
+          "data": {
+            "elevator": 1,
+            "from_position": 1.7,
+            "to_position": 1.9,
+            "direction": "up",
+            "status": "constant_speed"
+          }
+        },
+        {
+          "type": "elevator_approaching",
+          "data": {
+            "elevator": 1,
+            "floor": 2,
+            "direction": "up"
+          }
+        }
+      ]
+    }
+  ]
+}

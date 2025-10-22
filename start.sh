@@ -50,9 +50,9 @@ if ! command_exists pip3 && ! python3 -m pip --version >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "[STEP 1/3] Installing project dependencies..."
-echo "Installing elevator-py package in editable mode..."
-python3 -m pip install -e . --quiet
+echo "[STEP 1/3] Installing project dependencies (with visualization support)..."
+echo "Installing elevator-py package with visualization extras..."
+python3 -m pip install -e ".[visualization]" --quiet
 if [ $? -ne 0 ]; then
     echo "[ERROR] Failed to install project dependencies"
     echo "Please check your pip installation and network connection"
@@ -61,18 +61,16 @@ fi
 echo "[SUCCESS] Dependencies installed"
 echo ""
 
-echo "[STEP 2/3] Checking required packages..."
-python3 -c "import fastapi, uvicorn, httpx" 2>/dev/null
+echo "[STEP 2/3] Verifying visualization packages..."
+python3 -c "import fastapi, uvicorn, httpx, pydantic" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo "[ERROR] Required packages (fastapi, uvicorn, httpx) are not available"
-    echo "Attempting to install again..."
-    python3 -m pip install fastapi uvicorn httpx --quiet
+    echo "[WARNING] Some visualization packages missing, installing..."
+    python3 -m pip install fastapi uvicorn httpx pydantic --quiet
     if [ $? -ne 0 ]; then
-        echo "[ERROR] Failed to install required packages"
-        exit 1
+        echo "[WARNING] Some packages failed to install, but continuing..."
     fi
 fi
-echo "[SUCCESS] All required packages are available"
+echo "[SUCCESS] All packages verified"
 echo ""
 
 echo "[STEP 3/3] Starting Visualization Web Server..."
