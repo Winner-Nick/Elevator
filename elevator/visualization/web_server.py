@@ -102,14 +102,20 @@ class VisualizationServer:
             """列出所有可用算法"""
             try:
                 algorithms = []
+
+                # 添加主controller.py
+                controller_path = Path(__file__).parent.parent.parent / "controller.py"
+                if controller_path.exists():
+                    algorithms.append({
+                        "filename": "controller.py",
+                        "name": "LOOK V2 (Main)",
+                        "description": "主算法 - 实时决策版本LOOK V2",
+                    })
+
+                # 列出client_examples目录中的所有算法文件
                 for file_path in self.client_examples_dir.glob("*.py"):
-                    # 只列出visual开头的算法文件（这些会生成记录）
                     # 跳过__init__.py
                     if file_path.name.startswith("__"):
-                        continue
-
-                    # 只保留visual_开头的文件
-                    if not file_path.name.startswith("visual_"):
                         continue
 
                     # 读取文件获取算法描述
@@ -135,10 +141,11 @@ class VisualizationServer:
                                     if description:
                                         break
 
-                    # 显示名称去掉visual_前缀
+                    # 显示名称
                     display_name = file_path.stem
+                    # 如果有visual_前缀就去掉
                     if display_name.startswith("visual_"):
-                        display_name = display_name[7:]  # 去掉"visual_"前缀
+                        display_name = display_name[7:]
 
                     algorithms.append({
                         "filename": file_path.name,
@@ -194,7 +201,12 @@ class VisualizationServer:
             try:
                 import httpx
 
-                algorithm_file = self.client_examples_dir / request.algorithm
+                # 检查是否是controller.py（在项目根目录）
+                if request.algorithm == "controller.py":
+                    algorithm_file = Path(__file__).parent.parent.parent / "controller.py"
+                else:
+                    algorithm_file = self.client_examples_dir / request.algorithm
+
                 traffic_file = self.traffic_dir / request.traffic_file
 
                 if not algorithm_file.exists():

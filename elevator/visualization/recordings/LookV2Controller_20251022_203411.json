@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "start_time": "2025-10-22T20:34:10.844845",
+    "algorithm": "LookV2Controller",
+    "elevators": 2,
+    "floors": 6,
+    "total_passengers": 0,
+    "completed_passengers": 0,
+    "end_time": "2025-10-22T20:34:11.268219",
+    "total_ticks": 0
+  },
+  "history": []
+}

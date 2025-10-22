@@ -1,17 +1,17 @@
 #!/bin/bash
 # ====================================================================
-# Elevator Saga - Visual Look V2 Algorithm Launcher (Linux GUI Mode)
+# Elevator Saga - Visualization Web Interface (Linux GUI Mode)
 # ====================================================================
 # This script:
 # 1. Checks Python installation
 # 2. Installs project dependencies using pip
-# 3. Runs the Visual Look V2 algorithm with visualization
+# 3. Starts the Visualization Web Server
 # ====================================================================
 
 set -e  # Exit on error
 
 echo "========================================"
-echo "Elevator Saga - Visual Look V2"
+echo "Elevator Saga - Visualization System"
 echo "========================================"
 echo ""
 
@@ -62,11 +62,11 @@ echo "[SUCCESS] Dependencies installed"
 echo ""
 
 echo "[STEP 2/3] Checking required packages..."
-python3 -c "import numpy, flask" 2>/dev/null
+python3 -c "import fastapi, uvicorn, httpx" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo "[ERROR] Required packages (numpy, flask) are not available"
+    echo "[ERROR] Required packages (fastapi, uvicorn, httpx) are not available"
     echo "Attempting to install again..."
-    python3 -m pip install numpy flask --quiet
+    python3 -m pip install fastapi uvicorn httpx --quiet
     if [ $? -ne 0 ]; then
         echo "[ERROR] Failed to install required packages"
         exit 1
@@ -75,30 +75,26 @@ fi
 echo "[SUCCESS] All required packages are available"
 echo ""
 
-echo "[STEP 3/3] Starting LOOK V2 Algorithm..."
+echo "[STEP 3/3] Starting Visualization Web Server..."
 echo "========================================"
-echo "Running elevator scheduling algorithm"
-echo "Algorithm: LOOK V2 (Real-time Decision Making)"
+echo "Visualization Server is starting on port 8080"
+echo "Web UI URL: http://127.0.0.1:8080"
+echo "Press Ctrl+C to stop the server"
 echo "========================================"
 echo ""
 
-# Run the controller
+# Run the visualization web server
 # Try using python first (which might be in the venv), then fall back to python3
 if command -v python >/dev/null 2>&1; then
-    python controller.py
+    python visualize.py
 else
-    python3 controller.py
+    python3 visualize.py
 fi
 
-# Check if the algorithm ran successfully
+# Check if the server started successfully
 if [ $? -ne 0 ]; then
     echo ""
-    echo "[ERROR] Algorithm execution failed"
+    echo "[ERROR] Visualization server failed to start"
     echo "Please check the error messages above"
     exit 1
 fi
-
-echo ""
-echo "========================================"
-echo "[SUCCESS] Algorithm completed"
-echo "========================================"

@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from elevator.client.api_client import ElevatorAPIClient
 from elevator.client.proxy_models import ProxyElevator, ProxyFloor, ProxyPassenger
 from elevator.core.models import EventType, SimulationEvent, SimulationState
+from elevator.visualization.recorder import SimulationRecorder
 
 # 避免循环导入，使用运行时导入
 from elevator.utils.debug import debug_log
@@ -24,13 +25,14 @@ class ElevatorController(ABC):
     用户通过继承此类并实现 abstract 方法来创建自己的调度算法
     """
 
-    def __init__(self, server_url: str = "http://127.0.0.1:8000", debug: bool = False):
+    def __init__(self, server_url: str = "http://127.0.0.1:8000", debug: bool = False, enable_recording: bool = True):
         """
         初始化控制器
 
         Args:
             server_url: 服务器URL
             debug: 是否启用debug模式
+            enable_recording: 是否启用运行记录
         """
         self.server_url = server_url
         self.debug = debug
@@ -42,6 +44,10 @@ class ElevatorController(ABC):
 
         # 初始化API客户端
         self.api_client = ElevatorAPIClient(server_url)
+
+        # 初始化记录器
+        self.enable_recording = enable_recording
+        self.recorder = SimulationRecorder() if enable_recording else None
 
     @abstractmethod
     def on_init(self, elevators: List[Any], floors: List[Any]) -> None:
@@ -177,6 +183,14 @@ class ElevatorController(ABC):
         self.floors = floors
         self.current_tick = 0
 
+        # 设置记录器元数据
+        if self.recorder:
+            self.recorder.set_metadata(
+                algorithm=self.__class__.__name__,
+                elevators=len(elevators),
+                floors=len(floors),
+            )
+
         # 调用用户的初始化方法
         self.on_init(elevators, floors)
 
@@ -197,6 +211,9 @@ class ElevatorController(ABC):
         finally:
             self.is_running = False
             self.on_stop()
+            # 保存运行记录
+            if self.recorder:
+                self.recorder.save()
 
     def stop(self) -> None:
         """停止控制器"""
@@ -274,6 +291,11 @@ class ElevatorController(ABC):
 
                 # 事件执行后回调
                 self.on_event_execute_end(self.current_tick, events, self.elevators, self.floors)
+
+                # 记录当前状态快照
+                if self.recorder:
+                    self.recorder.record_state(state, events)
+
                 # 标记tick处理完成，使API客户端缓存失效
                 self.api_client.mark_tick_processed()
                 # 检查是否需要切换流量文件
