@@ -53,7 +53,32 @@ chmod +x start_no_gui.sh
 The start scripts will automatically:
 1. Check Python installation (requires Python 3.10+)
 2. Install all dependencies via pip
-3. Run the LOOK V2 algorithm (connects to existing simulator server)
+3. Run the LOOK V2 algorithm controller (connects to running simulator server)
+
+## Project Structure
+
+```
+.
+├── controller.py              # Main entry point - LOOK V2 algorithm controller
+├── start.bat / start.sh       # One-click launcher (GUI mode)
+├── start_no_gui.bat / start_no_gui.sh  # One-click launcher (headless mode)
+├── elevator/                  # Core elevator control module
+│   ├── __init__.py
+│   ├── client/                # Client API and controller base class
+│   │   ├── api_client.py      # HTTP client for simulator API
+│   │   ├── base_controller.py # Base class for algorithm implementation
+│   │   └── proxy_models.py    # Data models for elevator, floor, passenger
+│   ├── core/                  # Core simulation data models
+│   │   └── models.py          # Enums and data structures
+│   ├── utils/                 # Utility modules
+│   │   └── debug.py           # Debugging utilities
+│   └── visualization/         # Optional visualization server
+│       └── web_server.py      # FastAPI-based web visualization
+├── tests/                     # Test suite
+├── docs/                      # Documentation
+├── pyproject.toml             # Project configuration
+└── README.md                  # This file
+```
 
 ## Algorithm Design Overview
 
@@ -82,8 +107,9 @@ This project implements the **LOOK V2** elevator scheduling algorithm, which is 
 - State recording for visualization and analysis
 
 #### Implementation:
-- Main algorithm: `elevator_saga/client_examples/look_v2_example.py`
-- Visualization version (optional): `elevator_saga/client_examples/visual_look_v2_example.py`
+- Main algorithm controller: `controller.py`
+- Core modules: `elevator/client/` (API client, base controller, proxy models)
+- Data models: `elevator/core/models.py`
 
 ## Dependencies
 
@@ -129,13 +155,50 @@ See [Quick Start](#quick-start-one-click-launch) section above.
 ### Method 2: Manual Execution
 
 ```bash
-# Start the backend simulator (Terminal #1)
-python -m elevator_saga.server.simulator
+# Ensure simulator server is running (runs automatically in background)
+# Then run the LOOK V2 controller:
+python controller.py
 ```
 
+The simulator server typically runs on port 8000 by default.
+
+## Implementing Your Own Algorithm
+
+To implement your own elevator scheduling algorithm:
+
+1. **Extend the base controller**:
+```python
+from elevator.client.base_controller import ElevatorController
+from elevator.client.proxy_models import ProxyElevator, ProxyFloor, ProxyPassenger
+from elevator.core.models import Direction, SimulationEvent
+
+class MyAlgorithmController(ElevatorController):
+    def on_init(self, elevators, floors):
+        # Initialize your algorithm
+        pass
+
+    def on_passenger_call(self, passenger, floor, direction):
+        # Handle new passenger call
+        pass
+
+    def on_elevator_stopped(self, elevator, floor):
+        # Decide next target floor for elevator
+        elevator.go_to_floor(next_floor)
+
+    def on_event_execute_start(self, tick, events, elevators, floors):
+        # Called before processing events
+        pass
+
+    def on_event_execute_end(self, tick, events, elevators, floors):
+        # Called after processing events
+        pass
+```
+
+2. **Update controller.py** to use your algorithm class instead of LookV2Controller
+
+3. **Run the algorithm**:
 ```bash
-# Start the LOOK V2 client (Terminal #2)
-python -m elevator_saga.client_examples.look_v2_example
+python controller.py
 ```
 
 ## Documentation

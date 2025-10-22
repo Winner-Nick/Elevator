@@ -82,12 +82,12 @@ echo "Algorithm: LOOK V2 (Real-time Decision Making)"
 echo "========================================"
 echo ""
 
-# Run the LOOK V2 algorithm
+# Run the controller
 # Try using python first (which might be in the venv), then fall back to python3
 if command -v python >/dev/null 2>&1; then
-    python -m elevator_saga.client_examples.look_v2_example
+    python controller.py
 else
-    python3 -m elevator_saga.client_examples.look_v2_example
+    python3 controller.py
 fi
 
 # Check if the algorithm ran successfully

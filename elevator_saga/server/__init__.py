@@ -1,3 +1,0 @@
-"""
-Elevator simulation server components
-"""

@@ -59,11 +59,6 @@ all = [
 ]
 
 [project.scripts]
-elevator-saga = "elevator_saga.cli.main:main"
-elevator-server = "elevator_saga.cli.main:server_main"
-elevator-client = "elevator_saga.cli.main:client_main"
-elevator-grader = "elevator_saga.grader.grader:main"
-elevator-batch-test = "elevator_saga.grader.batch_runner:main"
 
 [project.urls]
 Homepage = "https://github.com/ZGCA-Forge/Elevator"
@@ -73,10 +68,10 @@ Issues = "https://github.com/ZGCA-Forge/Elevator/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["elevator_saga*"]
+include = ["elevator*"]
 
 [tool.setuptools.dynamic]
-version = {attr = "elevator_saga.__version__"}
+version = {attr = "elevator.__version__"}
 
 [tool.black]
 line-length = 120

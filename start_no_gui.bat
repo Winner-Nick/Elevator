@@ -66,9 +66,9 @@ echo Mode: Headless (No GUI)
 echo ========================================
 echo.
 
-REM Run the LOOK V2 algorithm
+REM Run the controller
 REM Try with current Python environment (handles venv automatically)
-python -m elevator_saga.client_examples.look_v2_example
+python controller.py
 
 REM Check if the algorithm ran successfully
 if %errorlevel% neq 0 (
