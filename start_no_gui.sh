@@ -52,7 +52,7 @@ fi
 
 echo "[STEP 1/3] Installing project dependencies..."
 echo "Installing elevator-py package in editable mode..."
-python3 -m pip install -e . --quiet
+#python3 -m pip install -e . --quiet
 if [ $? -ne 0 ]; then
     echo "[ERROR] Failed to install project dependencies"
     echo "Please check your pip installation and network connection"

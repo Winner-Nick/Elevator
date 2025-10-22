@@ -52,7 +52,7 @@ fi
 
 echo "[STEP 1/3] Installing project dependencies (with visualization support)..."
 echo "Installing elevator-py package with visualization extras..."
-python3 -m pip install -e ".[visualization]" --quiet
+#python3 -m pip install -e ".[visualization]" --quiet
 if [ $? -ne 0 ]; then
     echo "[ERROR] Failed to install project dependencies"
     echo "Please check your pip installation and network connection"

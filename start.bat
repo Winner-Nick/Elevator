@@ -38,7 +38,7 @@ if %errorlevel% neq 0 (
 
 echo [STEP 1/3] Installing project dependencies (with visualization support)...
 echo Installing elevator-py package with visualization extras...
-pip install -e ".[visualization]" >NUL 2>&1
+::pip install -e ".[visualization]" >NUL 2>&1
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install project dependencies
     echo Please check your pip installation and network connection
