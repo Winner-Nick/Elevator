@@ -1,83 +1,62 @@
 @echo off
 REM ====================================================================
-REM Elevator Saga - Visualization Web Interface (Windows GUI Mode)
+REM Elevator Saga - GUI Mode (Web Visualization Interface)
 REM ====================================================================
-REM This script:
-REM 1. Checks Python installation
-REM 2. Installs project dependencies using pip
-REM 3. Starts the Visualization Web Server
-REM 4. Opens the web interface in browser
+REM 启动电梯可视化Web界面
+REM 1. 检查Python环境
+REM 2. 安装必要依赖
+REM 3. 设置环境变量
+REM 4. 启动controller（GUI模式）
 REM ====================================================================
 
+setlocal enabledelayedexpansion
+
 echo ========================================
-echo Elevator Saga - Visualization System
+echo Elevator Saga - GUI Mode (可视化界面)
 echo ========================================
 echo.
 
-REM Check if Python is installed
+REM 检查Python
 python --version >NUL 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python is not installed or not in PATH
-    echo Please install Python 3.10 or higher from https://www.python.org/
+    echo [ERROR] Python 未安装
+    echo 请安装 Python 3.10 或更高版本
     pause
     exit /b 1
 )
 
-echo [INFO] Python version:
+echo [INFO] Python 版本:
 python --version
 echo.
 
-REM Check Python version (must be 3.10+)
+REM 检查Python版本
 python -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)" >NUL 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python 3.10 or higher is required
-    echo Current Python version is too old
+    echo [ERROR] 需要 Python 3.10 或更高版本
     pause
     exit /b 1
 )
 
-echo [STEP 1/3] Installing project dependencies (with visualization support)...
-echo Installing elevator-py package with visualization extras...
-::pip install -e ".[visualization]" >NUL 2>&1
+REM 安装依赖
+echo [STEP 1/2] 安装依赖...
+python -m pip install -q -r requirements.txt
 if %errorlevel% neq 0 (
-    echo [ERROR] Failed to install project dependencies
-    echo Please check your pip installation and network connection
+    echo [ERROR] 安装依赖失败
     pause
     exit /b 1
 )
-echo [SUCCESS] Dependencies installed
+echo [SUCCESS] 依赖安装完成
 echo.
 
-echo [STEP 2/3] Verifying visualization packages...
-python -c "import fastapi; import uvicorn; import httpx; import pydantic" >NUL 2>&1
-if %errorlevel% neq 0 (
-    echo [WARNING] Some visualization packages missing, installing...
-    pip install fastapi uvicorn httpx pydantic
-    if %errorlevel% neq 0 (
-        echo [WARNING] Some packages failed to install, but continuing...
-    )
-)
-echo [SUCCESS] All packages verified
-echo.
-
-echo [STEP 3/3] Starting Visualization Web Server...
+REM 启动controller
+echo [STEP 2/2] 启动 GUI 模式...
 echo ========================================
-echo Visualization Server is starting on port 8080
-echo Web UI URL: http://127.0.0.1:8080
-echo Press Ctrl+C to stop the server
+echo 访问地址: http://127.0.0.1:5173
+echo 按 Ctrl+C 停止
 echo ========================================
 echo.
 
-REM Start the visualization web server
-python visualize.py
-
-REM Check if the server started successfully
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] Visualization server failed to start
-    echo Please check the error messages above
-    pause
-    exit /b 1
-)
+set ELEVATOR_CLIENT_TYPE=gui
+python controller.py
 
 pause

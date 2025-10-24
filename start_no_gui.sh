@@ -1,100 +1,62 @@
 #!/bin/bash
 # ====================================================================
-# Elevator Saga - Visual Look V2 Algorithm Launcher (Linux Headless Mode)
+# Elevator Saga - Algorithm Mode (Headless)
 # ====================================================================
-# This script:
-# 1. Checks Python installation
-# 2. Installs project dependencies using pip
-# 3. Runs the Visual Look V2 algorithm without GUI
+# 启动电梯调度算法（无GUI）
+# 1. 检查Python环境
+# 2. 安装必要依赖
+# 3. 设置环境变量
+# 4. 启动controller（Algorithm模式）
 # ====================================================================
 
-set -e  # Exit on error
+set -e
 
 echo "========================================"
-echo "Elevator Saga - Visual Look V2 (Headless)"
+echo "Elevator Saga - Algorithm Mode (纯算法)"
 echo "========================================"
 echo ""
 
-# Function to check command existence
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# Check if Python3 is installed
-if ! command_exists python3; then
-    echo "[ERROR] Python3 is not installed"
-    echo "Please install Python 3.10 or higher"
-    echo "Ubuntu/Debian: apt install python3"
-    echo "Fedora: dnf install python3"
+# 检查Python是否安装
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[ERROR] Python3 未安装"
+    echo "请安装 Python 3.10 或更高版本"
     exit 1
 fi
 
-echo "[INFO] Python version:"
+echo "[INFO] Python 版本:"
 python3 --version
 echo ""
 
-# Check Python version (must be 3.10+)
+# 检查Python版本
 python3 -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo "[ERROR] Python 3.10 or higher is required"
-    echo "Current Python version is too old"
+    echo "[ERROR] 需要 Python 3.10 或更高版本"
     exit 1
 fi
 
-# Check if pip is installed
-if ! command_exists pip3 && ! python3 -m pip --version >/dev/null 2>&1; then
-    echo "[ERROR] pip is not installed"
-    echo "Please install pip3"
-    echo "Ubuntu/Debian: apt install python3-pip"
-    echo "Fedora: dnf install python3-pip"
+# 检查pip
+if ! command -v pip3 >/dev/null 2>&1 && ! python3 -m pip --version >/dev/null 2>&1; then
+    echo "[ERROR] pip 未安装"
     exit 1
 fi
 
-echo "[STEP 1/3] Installing project dependencies..."
-echo "Installing elevator-py package in editable mode..."
-#python3 -m pip install -e . --quiet
+# 安装依赖
+echo "[STEP 1/2] 安装依赖..."
+python3 -m pip install -q -r requirements.txt
 if [ $? -ne 0 ]; then
-    echo "[ERROR] Failed to install project dependencies"
-    echo "Please check your pip installation and network connection"
+    echo "[ERROR] 安装依赖失败"
     exit 1
 fi
-echo "[SUCCESS] Dependencies installed"
+echo "[SUCCESS] 依赖安装完成"
 echo ""
 
-echo "[STEP 2/3] Verifying core packages..."
-python3 -c "import numpy" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "[WARNING] Installing numpy..."
-    python3 -m pip install numpy --quiet
-fi
-echo "[SUCCESS] All packages verified"
-echo ""
-
-echo "[STEP 3/3] Starting LOOK V2 Algorithm (Headless Mode)..."
+# 启动controller
+echo "[STEP 2/2] 启动 Algorithm 模式..."
 echo "========================================"
-echo "Running elevator scheduling algorithm"
-echo "Algorithm: LOOK V2 (Real-time Decision Making)"
-echo "Mode: Headless (No GUI)"
+echo "运行纯调度算法（无可视化界面）"
+echo "按 Ctrl+C 停止"
 echo "========================================"
 echo ""
 
-# Run the controller
-# Try using python first (which might be in the venv), then fall back to python3
-if command_exists python; then
-    python controller.py
-else
-    python3 controller.py
-fi
-
-# Check if the algorithm ran successfully
-if [ $? -ne 0 ]; then
-    echo ""
-    echo "[ERROR] Algorithm execution failed"
-    echo "Please check the error messages above"
-    exit 1
-fi
-
-echo ""
-echo "========================================"
-echo "[SUCCESS] Algorithm completed"
-echo "========================================"
+export ELEVATOR_CLIENT_TYPE=algorithm
+python3 controller.py
