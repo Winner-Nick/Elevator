@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 """
+电梯调度控制器 - 支持 GUI 和 Algorithm 两种模式
+
+使用环境变量 ELEVATOR_CLIENT_TYPE 来控制运行模式：
+- gui: 启动可视化界面（纯监听模式）
+- algorithm: 启动调度算法（决策模式）
+
 LOOK V2 电梯调度算法 - 简化版本
 
 核心特点：
@@ -20,6 +26,7 @@ LOOK V2 电梯调度算法 - 简化版本
 """
 from typing import List, Optional, Set
 from elevator.client.base_controller import ElevatorController
+from elevator.client.gui_controller import GUIController
 from elevator.client.proxy_models import ProxyElevator, ProxyFloor, ProxyPassenger
 from elevator.core.models import Direction, SimulationEvent
 
@@ -339,6 +346,34 @@ class LookV2Controller(ElevatorController):
 
 
 if __name__ == "__main__":
-    # 启动LOOK V2控制器
-    controller = LookV2Controller(debug=False)
-    controller.start()
+    import os
+    import time
+
+    # 获取客户端类型
+    client_type = os.environ.get("ELEVATOR_CLIENT_TYPE", "algorithm").lower()
+
+    if client_type == "gui":
+        print("[MAIN] 启动 GUI 模式（纯可视化，监听事件）")
+        try:
+            from elevator.visualization.web_server import start_visualization_server
+            # 启动可视化服务器（后台线程）
+            print("[MAIN] 启动可视化 Web 服务器...")
+            web_thread = start_visualization_server(host="127.0.0.1", port=5173)
+            # 给服务器一些时间来启动
+            time.sleep(2)
+            print("[MAIN] Web 服务器已启动，访问 http://127.0.0.1:5173")
+        except Exception as e:
+            print(f"[WARN] 启动 Web 服务器失败: {e}")
+            print("[WARN] 继续运行控制器（不带可视化）")
+
+        # 启动 GUI 控制器（纯监听，不控制电梯）
+        print("[MAIN] 启动 GUI 控制器...")
+        controller = GUIController(debug=False)
+        controller.start()
+
+    elif client_type == "algorithm":
+        print("[MAIN] 启动 Algorithm 模式（纯算法，决策电梯）")
+        # 启动 LOOK V2 控制器（决策算法）
+        print("[MAIN] 启动电梯调度控制器...")
+        controller = LookV2Controller(debug=False)
+        controller.start()

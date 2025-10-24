@@ -5,16 +5,25 @@ Web Visualization Server
 """
 import asyncio
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from queue import Queue
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+
+# 全局事件队列（用于 GUIController 推送事件给 WebSocket）
+_event_queue: Queue = Queue()
+
+def get_event_queue() -> Queue:
+    """获取全局事件队列"""
+    return _event_queue
 
 
 class VisualizationServer:
@@ -26,6 +35,10 @@ class VisualizationServer:
         self.static_dir = Path(__file__).parent / "static"
         self.client_examples_dir = Path(__file__).parent.parent / "client_examples"
         self.traffic_dir = Path(__file__).parent.parent / "traffic"
+
+        # 获取客户端类型（gui 或 algorithm）
+        self.client_type = os.environ.get("ELEVATOR_CLIENT_TYPE", "gui").lower()
+        print(f"[INFO] Client Type: {self.client_type}")
 
         # 确保目录存在
         self.recordings_dir.mkdir(parents=True, exist_ok=True)
@@ -39,6 +52,11 @@ class VisualizationServer:
 
     def _setup_routes(self):
         """设置路由"""
+
+        @self.app.get("/api/client_type")
+        async def get_client_type():
+            """获取当前客户端类型"""
+            return {"client_type": self.client_type}
 
         @self.app.get("/")
         async def index():
@@ -326,27 +344,44 @@ class VisualizationServer:
         async def websocket_endpoint(websocket: WebSocket):
             """WebSocket端点，用于实时播放"""
             await websocket.accept()
-            print("🔗 WebSocket连接已建立")
+            print("[WS] WebSocket连接已建立")
 
             try:
                 while True:
-                    # 接收客户端消息
-                    message = await websocket.receive_json()
-                    command = message.get("command")
+                    # 使用 asyncio.sleep 以非阻塞方式检查消息
+                    try:
+                        # 设置超时以允许定期检查事件队列
+                        message = await asyncio.wait_for(
+                            websocket.receive_json(),
+                            timeout=0.5
+                        )
+                        command = message.get("command")
 
-                    if command == "load_recording":
-                        # 加载记录文件
-                        filename = message.get("filename")
-                        await self._send_recording(websocket, filename)
+                        if command == "load_recording":
+                            # 加载记录文件
+                            filename = message.get("filename")
+                            await self._send_recording(websocket, filename)
 
-                    elif command == "ping":
-                        # 心跳
-                        await websocket.send_json({"type": "pong"})
+                        elif command == "ping":
+                            # 心跳
+                            await websocket.send_json({"type": "pong"})
+
+                    except asyncio.TimeoutError:
+                        # 超时时检查事件队列
+                        pass
+
+                    # 检查事件队列中是否有新事件（来自 GUIController）
+                    while not _event_queue.empty():
+                        try:
+                            event = _event_queue.get_nowait()
+                            await websocket.send_json(event)
+                        except Exception as e:
+                            print(f"[WS] 发送事件失败: {e}")
 
             except WebSocketDisconnect:
-                print("🔌 WebSocket连接已断开")
+                print("[WS] WebSocket连接已断开")
             except Exception as e:
-                print(f"❌ WebSocket错误: {e}")
+                print(f"[WS] WebSocket错误: {e}")
                 await websocket.close()
 
         # 挂载静态文件
@@ -388,14 +423,28 @@ class VisualizationServer:
         except Exception as e:
             await websocket.send_json({"type": "error", "message": str(e)})
 
-    def run(self, host: str = "127.0.0.1", port: int = 8080):
+    def run(self, host: str = "127.0.0.1", port: int = 5173):
         """启动服务器"""
         import uvicorn
 
-        print(f"🚀 启动可视化服务器...")
-        print(f"📍 访问地址: http://{host}:{port}")
-        print(f"📁 记录目录: {self.recordings_dir}")
-        uvicorn.run(self.app, host=host, port=port)
+        print(f"[GUI] 启动可视化服务器...")
+        print(f"[GUI] 访问地址: http://{host}:{port}")
+        print(f"[GUI] 记录目录: {self.recordings_dir}")
+        uvicorn.run(self.app, host=host, port=port, log_level="error")
+
+
+def start_visualization_server(host: str = "127.0.0.1", port: int = 5173):
+    """在后台启动可视化服务器（用于 GUI 模式）"""
+    import threading
+
+    def _run_server():
+        server = VisualizationServer()
+        server.run(host=host, port=port)
+
+    # 创建后台线程
+    thread = threading.Thread(target=_run_server, daemon=True)
+    thread.start()
+    return thread
 
 
 def main():
