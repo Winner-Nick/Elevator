@@ -14,11 +14,58 @@ class ElevatorVisualization {
         this.playbackInterval = null;
         this.baseTickDuration = 500; // 基础每tick持续时间（毫秒）
         this.clientType = 'gui'; // 默认为 gui 模式
+        this.initTimeoutHandle = null; // 初始化超时句柄
+        this.hasReceivedInit = false; // 是否已接收init消息
 
         this.checkClientType().then(() => {
             this.initUI();
             this.connectWebSocket();
+            // 设置30秒超时，如果没有接收到init消息就显示等待状态
+            this.startInitTimeout();
         });
+    }
+
+    /**
+     * 启动初始化超时
+     */
+    startInitTimeout() {
+        this.initTimeoutHandle = setTimeout(() => {
+            if (!this.hasReceivedInit) {
+                console.warn('[WARN] No init message received within 30 seconds');
+                this.addEventLog('系统', '⚠️ 等待算法连接... 请启动 Algorithm 模式');
+                this.showWaitingForAlgorithm();
+            }
+        }, 30000); // 30秒超时
+    }
+
+    /**
+     * 显示等待算法连接的UI
+     */
+    showWaitingForAlgorithm() {
+        const buildingView = document.getElementById('buildingView');
+        buildingView.innerHTML = `
+            <div style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                height: 400px;
+                color: #666;
+                font-size: 16px;
+                text-align: center;
+                gap: 20px;
+            ">
+                <div style="font-size: 48px;">⏳</div>
+                <div style="font-weight: bold;">等待算法连接</div>
+                <div style="font-size: 14px; color: #999;">
+                    GUI 已启动，等待 Algorithm 模式连接...<br>
+                    请运行: <code style="background: #f0f0f0; padding: 2px 6px;">start_no_gui.bat</code>
+                </div>
+                <div style="font-size: 12px; color: #ccc;">
+                    在另一个终端执行以启动调度算法
+                </div>
+            </div>
+        `;
     }
 
     /**
@@ -111,7 +158,14 @@ class ElevatorVisualization {
 
         this.ws.onopen = () => {
             console.log('✅ WebSocket连接成功');
-            this.addEventLog('系统', 'WebSocket连接成功');
+            this.addEventLog('系统', '✅ WebSocket连接成功，等待算法初始化...');
+            // 重置初始化标志，等待新的init消息
+            this.hasReceivedInit = false;
+            // 重新启动初始化超时
+            if (this.initTimeoutHandle) {
+                clearTimeout(this.initTimeoutHandle);
+            }
+            this.startInitTimeout();
         };
 
         this.ws.onmessage = (event) => {
@@ -121,7 +175,9 @@ class ElevatorVisualization {
 
         this.ws.onclose = () => {
             console.log('🔌 WebSocket连接关闭');
-            this.addEventLog('系统', 'WebSocket连接关闭');
+            this.addEventLog('系统', '⚠️ WebSocket连接关闭，显示等待状态');
+            // 连接关闭时也显示等待状态
+            this.showWaitingForAlgorithm();
         };
 
         this.ws.onerror = (error) => {
@@ -140,7 +196,15 @@ class ElevatorVisualization {
             case 'init':
                 // 初始化消息 - 创建初始状态快照
                 console.log(`[Init] Creating initial state with ${message.data.elevators_count} elevators, ${message.data.floors_count} floors`);
-                this.addEventLog('系统', `GUI初始化: ${message.data.elevators_count}部电梯, ${message.data.floors_count}层楼`);
+
+                // 清除初始化超时（已成功接收init消息）
+                if (this.initTimeoutHandle) {
+                    clearTimeout(this.initTimeoutHandle);
+                    this.initTimeoutHandle = null;
+                }
+                this.hasReceivedInit = true;
+
+                this.addEventLog('系统', `✅ 算法已连接: ${message.data.elevators_count}部电梯, ${message.data.floors_count}层楼`);
                 // 创建初始状态
                 const initialState = {
                     tick: 0,

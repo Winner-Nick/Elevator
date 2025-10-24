@@ -7,7 +7,7 @@
 3. 乘客不会在电梯内改变目的地
 4. 乘客上下电梯按先来后到顺序
 5. 乘客不会通过多次上下电梯实现目的地的到达
-类型参数和接口说明elevator_saga/client/proxy_models.py、elevator_saga/core/models.py
+类型参数和接口说明
 https://zgca-forge.github.io/Elevator/client.html
 
 
@@ -15,5 +15,9 @@ https://zgca-forge.github.io/Elevator/client.html
 遵循最简化要求，注释要详细，代码要尽量简化。
 
 ## 当前进度
-可随时查看git历史记录。当前已经开发了一个简易的例子，在elevator_saga\client_examples\simple_example.py中。
+可随时查看git历史记录。
 当前环境是在anaconda环境下的elevator中
+
+## 注意事项
+1. 除非用户要求，否则不要一结束就写总结文档。请等待用户测试正确并给予反馈。
+2. 不要自行git commit。

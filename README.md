@@ -1,226 +1,335 @@
-# Elevator Saga
+# Elevator Scheduling System
 
-<div align="center">
-
-[![PyPI version](https://badge.fury.io/py/elevator-py.svg)](https://badge.fury.io/py/elevator-py)
-[![Python versions](https://img.shields.io/pypi/pyversions/elevator-py.svg)](https://pypi.org/project/elevator-py/)
-[![Build Status](https://github.com/ZGCA-Forge/Elevator/actions/workflows/ci.yml/badge.svg)](https://github.com/ZGCA-Forge/Elevator/actions)
-[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-brightgreen)](https://zgca-forge.github.io/Elevator/)
-
-[![GitHub stars](https://img.shields.io/github/stars/ZGCA-Forge/Elevator.svg?style=social&label=Star)](https://github.com/ZGCA-Forge/Elevator)
-[![GitHub forks](https://img.shields.io/github/forks/ZGCA-Forge/Elevator.svg?style=social&label=Fork)](https://github.com/ZGCA-Forge/Elevator/fork)
-[![GitHub issues](https://img.shields.io/github/issues/ZGCA-Forge/Elevator.svg)](https://github.com/ZGCA-Forge/Elevator/issues)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ZGCA-Forge/Elevator/blob/main/LICENSE)
-
-</div>
+🏢 **Elevator Dispatch Model** - Efficient passenger transportation through precise elevator control algorithms
 
 ---
 
-Elevator Saga is a Python implementation of an elevator [simulation game](https://play.elevatorsaga.com/) with a event-driven architecture Design and optimize elevator control algorithms to efficiently transport passengers in buildings.
-
-### Features
-
-- 🏢 **Realistic Simulation**: Physics-based elevator movement with acceleration, deceleration, and realistic timing
-
-## Quick Start (One-Click Launch)
+## Quick Start
 
 ### Windows
 
-**GUI Mode** (with visualization):
+**Visualization Mode** (with Web Interface):
 ```bash
 start.bat
 ```
 
-**Headless Mode** (no GUI):
+**Headless Mode** (Algorithm Only):
 ```bash
 start_no_gui.bat
 ```
 
-### Linux
+### Linux/Mac
 
-**GUI Mode** (with visualization):
+**Visualization Mode**:
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 
-**Headless Mode** (no GUI):
+**Headless Mode**:
 ```bash
 chmod +x start_no_gui.sh
 ./start_no_gui.sh
 ```
 
-The start scripts will automatically:
-1. Check Python installation (requires Python 3.10+)
-2. Install all dependencies via pip
-3. Run the LOOK V2 algorithm controller (connects to running simulator server)
+The startup scripts will automatically:
+1. Check Python version (requires 3.10+)
+2. Install all dependencies
+3. Launch the elevator controller
+
+---
+
+## Running Modes
+
+### 1️⃣ Visualization Mode (GUI)
+
+```bash
+start.bat
+```
+
+**Features**:
+- Launches FastAPI Web server (port 5173)
+- Real-time elevator status visualization via WebSocket
+- Shows elevator position, direction, passenger queues
+- Supports pause, speed control, and other playback features
+
+**Access**: http://127.0.0.1:5173
+
+**Workflow**:
+```
+GUI Launch
+  ↓
+Web Server Startup (FastAPI)
+  ↓
+GUIController connects to simulator (registers as "gui" client)
+  ↓
+Receives simulator callbacks, pushes real-time data to WebSocket
+  ↓
+Frontend displays live elevator movement
+```
+
+### 2️⃣ Algorithm Mode (Headless)
+
+```bash
+start_no_gui.bat
+```
+
+**Features**:
+- Pure algorithm execution, no Web interface
+- Directly connects to simulator (registers as "algorithm" client)
+- Executes LOOK V2 scheduling algorithm
+- Real-time floor decision making for each elevator
+
+**Workflow**:
+```
+Algorithm Launch
+  ↓
+LookV2Controller connects to simulator
+  ↓
+Immediately starts LOOK V2 algorithm
+  ↓
+Dynamically decides next target floor for each elevator
+```
+
+---
 
 ## Project Structure
 
 ```
 .
-├── controller.py              # Main entry point - LOOK V2 algorithm controller
-├── start.bat / start.sh       # One-click launcher (GUI mode)
-├── start_no_gui.bat / start_no_gui.sh  # One-click launcher (headless mode)
-├── elevator/                  # Core elevator control module
-│   ├── __init__.py
-│   ├── client/                # Client API and controller base class
-│   │   ├── api_client.py      # HTTP client for simulator API
-│   │   ├── base_controller.py # Base class for algorithm implementation
-│   │   └── proxy_models.py    # Data models for elevator, floor, passenger
-│   ├── core/                  # Core simulation data models
-│   │   └── models.py          # Enums and data structures
-│   ├── utils/                 # Utility modules
-│   │   └── debug.py           # Debugging utilities
-│   └── visualization/         # Optional visualization server
-│       └── web_server.py      # FastAPI-based web visualization
-├── tests/                     # Test suite
-├── docs/                      # Documentation
-├── pyproject.toml             # Project configuration
-└── README.md                  # This file
+├── controller.py                 # Main entry point - launches GUI or Algorithm based on env var
+├── start.bat / start.sh          # Launcher (GUI Mode)
+├── start_no_gui.bat / start_no_gui.sh  # Launcher (Algorithm Mode)
+├── CLAUDE.md                     # Coding standards
+├── README.md                     # This document
+│
+├── elevator/                     # Core modules
+│   ├── client/
+│   │   ├── api_client.py        # HTTP client (communicates with simulator)
+│   │   ├── base_controller.py   # Controller base class
+│   │   ├── gui_controller.py    # GUI mode (listen-only)
+│   │   └── proxy_models.py      # Data proxy objects
+│   ├── core/
+│   │   └── models.py            # Data models and enums
+│   ├── utils/
+│   │   └── debug.py             # Debug utilities
+│   └── visualization/
+│       ├── web_server.py        # FastAPI Web server
+│       ├── recorder.py          # Simulation recorder
+│       └── static/
+│           ├── index.html       # Frontend page
+│           ├── app.js           # Frontend logic
+│           └── style.css        # Styles
+│
+├── client_examples/             # User-defined algorithm examples
+│   └── simple_example.py        # Simple algorithm example
+│
+├── traffic/                     # Traffic files
+│   └── *.json                   # Passenger arrival schedules
+│
+└── requirements.txt             # Python dependencies
 ```
 
-## Algorithm Design Overview
+---
 
-### LOOK V2 Algorithm
+## LOOK V2 Algorithm
 
-This project implements the **LOOK V2** elevator scheduling algorithm, which is a real-time decision-making variant of the classic LOOK disk scheduling algorithm.
+### Core Concept
 
-#### Core Design Principles:
+A real-time decision-making variant of the classic LOOK elevator scheduling algorithm:
 
-1. **Real-time Decision Making**: Dynamically selects the next target floor at each stop, without maintaining a pre-planned task queue
+1. **Idle Priority**: When elevator is empty, move to the nearest floor with waiting passengers
+2. **LOOK Scanning**: When elevator has passengers, follow the scanning direction (up/down)
+3. **Direction Matching**: Only pick up passengers going in the current direction
+4. **Natural Cycling**: Avoids complex direction switching logic
 
-2. **Dual Strategy Approach**:
-   - **Idle Priority**: When elevator is empty, go to the nearest floor with waiting passengers
-   - **LOOK Scanning**: When elevator has passengers, follow the scanning direction (up/down)
+### Implementation
 
-3. **Direction Matching**: Strictly adheres to LOOK algorithm constraints:
-   - During upward scan: only pick up passengers going up (up_queue)
-   - During downward scan: only pick up passengers going down (down_queue)
+- Algorithm Controller: `LookV2Controller` in `controller.py`
+- Core Logic: `_select_next_floor_look()` method in `on_elevator_stopped()`
 
-4. **Simplicity**: Avoids complex direction switching logic, allowing natural algorithm cycling
+### Key Features
 
-#### Key Features:
-- Prevents deadlocks and elevator stalling
-- Efficient passenger service with minimal wait times
-- Natural bidirectional scanning pattern
-- State recording for visualization and analysis
+- ✅ No deadlocks
+- ✅ Minimized wait times
+- ✅ Clean and understandable code
 
-#### Implementation:
-- Main algorithm controller: `controller.py`
-- Core modules: `elevator/client/` (API client, base controller, proxy models)
-- Data models: `elevator/core/models.py`
+---
 
-## Dependencies
+## Multi-Controller Scenarios (Inter-Group Collaboration)
 
-### Required
+The system supports running two different controllers simultaneously:
 
-- **Python**: 3.10 or higher
-- **numpy**: >= 1.20.0 (for numerical computations)
-- **flask**: >= 2.0.0 (for web server)
+### Scenario 1: Your GUI + Someone Else's Algorithm
 
-### Optional (for visualization)
-
-- **fastapi**: >= 0.100.0
-- **uvicorn**: >= 0.23.0
-- **websockets**: >= 11.0.0
-
-All dependencies are automatically installed when using the start scripts.
-
-## Installation
-
-### Basic Installation
-
+**Step 1**: Launch your visualization
 ```bash
-pip install elevator-py
-```
-
-### Manual Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/ZGCA-Forge/Elevator.git
-cd Elevator
-
-# Install in editable mode
-pip install -e .
-```
-
-## Running the Algorithm
-
-### Method 1: Use Start Scripts (Recommended)
-
-See [Quick Start](#quick-start-one-click-launch) section above.
-
-### Method 2: Manual Execution
-
-```bash
-# Ensure simulator server is running (runs automatically in background)
-# Then run the LOOK V2 controller:
+set ELEVATOR_CLIENT_TYPE=gui
 python controller.py
 ```
 
-The simulator server typically runs on port 8000 by default.
+**Step 2**: Launch their algorithm (in another terminal)
+```bash
+cd /path/to/other_repo
+set ELEVATOR_CLIENT_TYPE=algorithm
+python controller.py
+```
 
-## Implementing Your Own Algorithm
+**Result**:
+- Your GUI controller only receives events (listen-only)
+- Their algorithm controller controls the elevators
+- Web interface (5173) displays their algorithm's results
 
-To implement your own elevator scheduling algorithm:
+### Scenario 2: Someone Else's GUI + Your Algorithm
 
-1. **Extend the base controller**:
+**Step 1**: Launch their visualization
+```bash
+cd /path/to/other_repo
+set ELEVATOR_CLIENT_TYPE=gui
+python controller.py
+# Visit their web interface
+```
+
+**Step 2**: Launch your algorithm (in another terminal)
+```bash
+set ELEVATOR_CLIENT_TYPE=algorithm
+python controller.py
+```
+
+**Result**:
+- Their GUI controller only receives events
+- Your algorithm controller controls the elevators
+- Their web interface displays your algorithm's results
+
+---
+
+## Implementing Custom Algorithms
+
+### Basic Template
+
 ```python
 from elevator.client.base_controller import ElevatorController
 from elevator.client.proxy_models import ProxyElevator, ProxyFloor, ProxyPassenger
 from elevator.core.models import Direction, SimulationEvent
+from typing import List
 
 class MyAlgorithmController(ElevatorController):
-    def on_init(self, elevators, floors):
-        # Initialize your algorithm
-        pass
+    """My custom elevator scheduling algorithm"""
 
-    def on_passenger_call(self, passenger, floor, direction):
-        # Handle new passenger call
-        pass
+    def on_init(self, elevators: List[ProxyElevator], floors: List[ProxyFloor]) -> None:
+        """Initialize algorithm"""
+        print(f"Initialized: {len(elevators)} elevators, {len(floors)} floors")
 
-    def on_elevator_stopped(self, elevator, floor):
-        # Decide next target floor for elevator
+    def on_elevator_stopped(self, elevator: ProxyElevator, floor: ProxyFloor) -> None:
+        """Decide next target floor when elevator stops"""
+        next_floor = self.decide_next_floor(elevator, floor)
         elevator.go_to_floor(next_floor)
 
-    def on_event_execute_start(self, tick, events, elevators, floors):
-        # Called before processing events
+    def on_passenger_call(self, passenger: ProxyPassenger, floor: ProxyFloor, direction: str) -> None:
+        """Handle new passenger call"""
         pass
 
-    def on_event_execute_end(self, tick, events, elevators, floors):
-        # Called after processing events
+    def on_elevator_idle(self, elevator: ProxyElevator) -> None:
+        """Handle idle elevator"""
+        pass
+
+    def on_passenger_board(self, elevator: ProxyElevator, passenger: ProxyPassenger) -> None:
+        """Handle passenger boarding"""
+        pass
+
+    def on_passenger_alight(self, elevator: ProxyElevator, passenger: ProxyPassenger, floor: ProxyFloor) -> None:
+        """Handle passenger alighting"""
+        pass
+
+    def on_event_execute_start(self, tick: int, events: List[SimulationEvent],
+                              elevators: List[ProxyElevator], floors: List[ProxyFloor]) -> None:
+        """Before event processing"""
+        pass
+
+    def on_event_execute_end(self, tick: int, events: List[SimulationEvent],
+                            elevators: List[ProxyElevator], floors: List[ProxyFloor]) -> None:
+        """After event processing"""
+        pass
+
+    def on_elevator_passing_floor(self, elevator: ProxyElevator, floor: ProxyFloor, direction: str) -> None:
+        """Optional: handle elevator passing floor"""
+        pass
+
+    def on_elevator_approaching(self, elevator: ProxyElevator, floor: ProxyFloor, direction: str) -> None:
+        """Optional: handle elevator approaching floor"""
         pass
 ```
 
-2. **Update controller.py** to use your algorithm class instead of LookV2Controller
+### Using Custom Algorithm
 
-3. **Run the algorithm**:
-```bash
-python controller.py
-```
+1. Place your algorithm in `client_examples/` directory
+2. Modify `controller.py` to import your algorithm class
+3. Run `start_no_gui.bat`
+
+---
+
+## Dependencies
+
+### Required
+- Python >= 3.10
+- fastapi >= 0.100.0
+- uvicorn >= 0.23.0
+- websockets >= 11.0.0
+- pydantic >= 2.0.0
+
+All dependencies are automatically installed when running the startup scripts.
+
+---
+
+## Environment Variables
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `ELEVATOR_CLIENT_TYPE` | `gui` | Launch visualization mode |
+| `ELEVATOR_CLIENT_TYPE` | `algorithm` | Launch algorithm mode |
+| `ELEVATOR_SERVER_URL` | Default: `http://127.0.0.1:8000` | Simulator server address |
+
+---
+
+## Troubleshooting
+
+### Issue 1: Web interface won't open
+
+1. Check if Python process is running
+2. Ensure port 5173 is not in use
+3. Check firewall settings
+4. Open browser developer tools (F12) to check Console for errors
+
+### Issue 2: Simulator not responding
+
+1. Confirm simulator service is running (usually at http://127.0.0.1:8000)
+2. Check network connection
+3. Look for connection errors in command line output
+
+### Issue 3: Elevators not moving
+
+1. Ensure both controllers are connected to the same simulator
+2. Verify correct client type registration (gui or algorithm)
+3. Check command line logs for error messages
+
+---
 
 ## Documentation
 
-For detailed documentation, please visit: [https://zgca-forge.github.io/Elevator/](https://zgca-forge.github.io/Elevator/)
+See also:
+- `CLAUDE.md` - Coding standards and design principles
+- Code comments - Key functions have detailed explanations
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=ZGCA-Forge/Elevator&type=Date)](https://star-history.com/#ZGCA-Forge/Elevator&Date)
+---
 
 ## License
 
-This project is licensed under MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - See LICENSE file for details
 
 ---
 
 <div align="center">
 
-Made with ❤️ by the ZGCA-Forge Team
+Made with ❤️ by the Team
 
 </div>
