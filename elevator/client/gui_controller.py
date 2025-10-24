@@ -21,6 +21,8 @@ class GUIController(ElevatorController):
         except ImportError:
             self.event_queue = None
             print("[GUI] 警告: 无法导入事件队列，实时推送将不可用")
+        # 初始化事件回调函数（备用，默认为None）
+        self.event_callback = None
         print("[GUI] GUI Controller 初始化完成")
 
     def set_event_callback(self, callback):
