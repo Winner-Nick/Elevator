@@ -232,9 +232,12 @@ class ElevatorController(ABC):
     def _run_event_driven_simulation(self) -> None:
         """运行事件驱动的模拟"""
         try:
-            # 首先注册为算法客户端
-            if not self.api_client.register_client("algorithm"):
-                print("Failed to register as algorithm client, but continuing...")
+            # 从环境变量读取客户端类型（gui 或 algorithm）
+            client_type = os.environ.get("ELEVATOR_CLIENT_TYPE", "algorithm").lower()
+
+            # 首先注册为指定的客户端类型
+            if not self.api_client.register_client(client_type):
+                print(f"Failed to register as {client_type} client, but continuing...")
 
             # 获取初始状态并初始化，默认从0开始
             try:

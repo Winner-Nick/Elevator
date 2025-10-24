@@ -18,7 +18,6 @@ class ElevatorVisualization {
         this.checkClientType().then(() => {
             this.initUI();
             this.connectWebSocket();
-            this.loadRecordingList();
         });
     }
 
@@ -62,27 +61,6 @@ class ElevatorVisualization {
         document.getElementById('progressBar').addEventListener('input', (e) => {
             const index = parseInt(e.target.value);
             this.seekTo(index);
-        });
-
-        // 加载记录按钮
-        document.getElementById('btnLoadRecording').addEventListener('click', () => {
-            const filename = document.getElementById('recordingSelect').value;
-            if (filename) {
-                this.loadRecording(filename);
-            }
-        });
-
-        // 下拉框选择变化时也自动加载
-        document.getElementById('recordingSelect').addEventListener('change', (e) => {
-            const filename = e.target.value;
-            if (filename) {
-                this.loadRecording(filename);
-            }
-        });
-
-        // 刷新记录列表按钮
-        document.getElementById('btnRefreshRecordings').addEventListener('click', () => {
-            this.loadRecordingList();
         });
 
         // 事件筛选
@@ -156,7 +134,38 @@ class ElevatorVisualization {
      * 处理WebSocket消息
      */
     handleWebSocketMessage(message) {
+        console.log(`[WebSocket] Received message type: ${message.type}`, message);
+
         switch (message.type) {
+            case 'init':
+                // 初始化消息 - 创建初始状态快照
+                console.log(`[Init] Creating initial state with ${message.data.elevators_count} elevators, ${message.data.floors_count} floors`);
+                this.addEventLog('系统', `GUI初始化: ${message.data.elevators_count}部电梯, ${message.data.floors_count}层楼`);
+                // 创建初始状态
+                const initialState = {
+                    tick: 0,
+                    elevators: Array(message.data.elevators_count).fill(null).map((_, i) => ({
+                        id: i,
+                        current_floor: 0,
+                        direction: 'stopped',
+                        passengers: [],
+                    })),
+                    floors: Array(message.data.floors_count).fill(null).map((_, i) => ({
+                        floor: i,
+                        up_queue: [],
+                        down_queue: [],
+                    })),
+                    events: []
+                };
+                // 清空并初始化历史记录
+                this.history = [initialState];
+                this.currentIndex = 0;
+                this.lastRenderedIndex = -1;
+                document.getElementById('eventList').innerHTML = '';
+                this.updateProgressBar();
+                this.renderCurrentState();
+                break;
+
             case 'metadata':
                 this.metadata = message.data;
                 this.addEventLog('系统', `加载记录: ${message.filename}`);
@@ -197,55 +206,6 @@ class ElevatorVisualization {
         }
     }
 
-    /**
-     * 加载记录列表
-     */
-    async loadRecordingList(autoLoadLatest = true) {
-        try {
-            const response = await fetch('/api/recordings');
-            const data = await response.json();
-
-            if (data.success) {
-                const select = document.getElementById('recordingSelect');
-                const currentValue = select.value; // 保存当前选择
-                select.innerHTML = '<option value="">选择历史记录...</option>';
-
-                data.recordings.forEach(recording => {
-                    const option = document.createElement('option');
-                    option.value = recording.filename;
-                    option.textContent = `${recording.filename} (${recording.metadata.total_ticks || 0} ticks)`;
-                    select.appendChild(option);
-                });
-
-                // 优先恢复之前的选择，否则自动加载最新的
-                if (currentValue && data.recordings.find(r => r.filename === currentValue)) {
-                    select.value = currentValue;
-                } else if (autoLoadLatest && data.recordings.length > 0) {
-                    select.value = data.recordings[0].filename;
-                    this.loadRecording(data.recordings[0].filename);
-                }
-            } else {
-                console.log('[INFO] 暂无历史记录文件，等待实时数据...');
-                this.addEventLog('系统', '等待实时数据...');
-            }
-        } catch (error) {
-            console.error('加载记录列表失败:', error);
-            this.addEventLog('系统', '等待实时数据中...');
-        }
-    }
-
-    /**
-     * 加载指定记录
-     */
-    loadRecording(filename) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.pause();
-            this.ws.send(JSON.stringify({
-                command: 'load_recording',
-                filename: filename
-            }));
-        }
-    }
 
     /**
      * 加载算法列表
@@ -356,14 +316,6 @@ class ElevatorVisualization {
                 runStatus.className = 'run-status success';
                 this.addEventLog('系统', `运行成功: ${data.recording}`);
 
-                // 刷新记录列表并自动加载新生成的记录
-                await this.loadRecordingList(false);
-
-                // 选中并加载新生成的记录
-                const recordingSelect = document.getElementById('recordingSelect');
-                recordingSelect.value = data.recording;
-                this.loadRecording(data.recording);
-
             } else {
                 // 运行失败
                 runStatus.textContent = '❌ 运行失败';
@@ -467,6 +419,9 @@ class ElevatorVisualization {
 
         const state = this.history[this.currentIndex];
 
+        // 调试日志
+        console.log(`[Render] Tick ${state.tick}, Floors: ${state.floors ? state.floors.length : 0}, Elevators: ${state.elevators ? state.elevators.length : 0}`);
+
         // 更新Tick显示
         document.getElementById('currentTick').textContent = state.tick;
 
@@ -509,6 +464,12 @@ class ElevatorVisualization {
     renderBuilding(state) {
         const buildingView = document.getElementById('buildingView');
 
+        // 防御性检查：确保有必要的数据
+        if (!state || !state.elevators || !state.floors) {
+            console.error('Invalid state data:', state);
+            return;
+        }
+
         // 动态确定楼层数和电梯数（从实际数据中获取）
         const numFloors = state.floors.length;
         const numElevators = state.elevators.length;
@@ -518,7 +479,16 @@ class ElevatorVisualization {
 
         // 从高到低渲染每一层
         for (let floorNum = numFloors - 1; floorNum >= 0; floorNum--) {
-            const floorData = state.floors.find(f => f.floor === floorNum);
+            // 查找对应的楼层数据，如果不存在则使用默认值
+            let floorData = state.floors.find(f => f.floor === floorNum);
+            if (!floorData) {
+                // 如果找不到这个楼层的数据，创建一个默认的
+                floorData = {
+                    floor: floorNum,
+                    up_queue: [],
+                    down_queue: []
+                };
+            }
             const floorRow = document.createElement('div');
             floorRow.className = 'floor-row';
 
@@ -550,7 +520,8 @@ class ElevatorVisualization {
                 shaft.appendChild(track);
 
                 // 检查电梯是否在当前楼层
-                const elevatorFloor = Math.floor(elevator.current_floor_float);
+                // 支持两种数据格式：current_floor_float 和 current_floor
+                const elevatorFloor = Math.floor(elevator.current_floor_float || elevator.current_floor);
                 if (elevatorFloor === floorNum) {
                     const car = document.createElement('div');
                     car.className = `elevator-car ${elevator.direction}`;
@@ -565,7 +536,7 @@ class ElevatorVisualization {
                     direction.textContent = this.getDirectionSymbol(elevator.direction);
                     car.appendChild(direction);
 
-                    if (elevator.passengers.length > 0) {
+                    if (elevator.passengers && elevator.passengers.length > 0) {
                         const passengers = document.createElement('div');
                         passengers.className = 'elevator-passengers';
                         passengers.textContent = '👤'.repeat(Math.min(elevator.passengers.length, 5));
@@ -574,9 +545,8 @@ class ElevatorVisualization {
                         }
                         car.appendChild(passengers);
 
-                        // 添加悬停提示
-                        const destinations = Object.values(elevator.passenger_destinations);
-                        car.title = `乘客目的地: ${destinations.join(', ')}`;
+                        // 添加悬停提示（显示乘客ID而不是目的地，因为GUI controller不知道目的地）
+                        car.title = `乘客: ${elevator.passengers.slice(0, 5).join(', ')}${elevator.passengers.length > 5 ? '...' : ''}`;
                     }
 
                     shaft.appendChild(car);
@@ -599,15 +569,31 @@ class ElevatorVisualization {
                     upDiv.innerHTML = '<span class="direction-icon">↑</span>';
 
                     floorData.up_queue.forEach(passengerId => {
-                        const passenger = state.passengers[passengerId];
-                        if (passenger) {
-                            const badge = document.createElement('span');
-                            badge.className = 'passenger-badge';
-                            const destLabel = passenger.destination === 0 ? 'G' : `${passenger.destination}F`;
-                            badge.textContent = `P${passengerId}→${destLabel}`;
-                            badge.title = `到达时间: Tick ${passenger.arrive_tick}`;
-                            upDiv.appendChild(badge);
+                        // 安全地处理passengerId（可能是数字或字符串）
+                        if (passengerId === undefined || passengerId === null) {
+                            return;
                         }
+
+                        const badge = document.createElement('span');
+                        badge.className = 'passenger-badge';
+
+                        // 如果有乘客信息，显示目的地；否则只显示ID
+                        if (state.passengers && typeof state.passengers === 'object' && state.passengers[passengerId]) {
+                            const passenger = state.passengers[passengerId];
+                            if (passenger.destination !== undefined) {
+                                const destLabel = passenger.destination === 0 ? 'G' : `${passenger.destination}F`;
+                                badge.textContent = `P${passengerId}→${destLabel}`;
+                                badge.title = `到达时间: Tick ${passenger.arrive_tick || '?'}`;
+                            } else {
+                                badge.textContent = `P${passengerId}`;
+                                badge.title = `乘客 ${passengerId}`;
+                            }
+                        } else {
+                            badge.textContent = `P${passengerId}`;
+                            badge.title = `乘客 ${passengerId}`;
+                        }
+
+                        upDiv.appendChild(badge);
                     });
 
                     waitingArea.appendChild(upDiv);
@@ -620,15 +606,31 @@ class ElevatorVisualization {
                     downDiv.innerHTML = '<span class="direction-icon">↓</span>';
 
                     floorData.down_queue.forEach(passengerId => {
-                        const passenger = state.passengers[passengerId];
-                        if (passenger) {
-                            const badge = document.createElement('span');
-                            badge.className = 'passenger-badge';
-                            const destLabel = passenger.destination === 0 ? 'G' : `${passenger.destination}F`;
-                            badge.textContent = `P${passengerId}→${destLabel}`;
-                            badge.title = `到达时间: Tick ${passenger.arrive_tick}`;
-                            downDiv.appendChild(badge);
+                        // 安全地处理passengerId（可能是数字或字符串）
+                        if (passengerId === undefined || passengerId === null) {
+                            return;
                         }
+
+                        const badge = document.createElement('span');
+                        badge.className = 'passenger-badge';
+
+                        // 如果有乘客信息，显示目的地；否则只显示ID
+                        if (state.passengers && typeof state.passengers === 'object' && state.passengers[passengerId]) {
+                            const passenger = state.passengers[passengerId];
+                            if (passenger.destination !== undefined) {
+                                const destLabel = passenger.destination === 0 ? 'G' : `${passenger.destination}F`;
+                                badge.textContent = `P${passengerId}→${destLabel}`;
+                                badge.title = `到达时间: Tick ${passenger.arrive_tick || '?'}`;
+                            } else {
+                                badge.textContent = `P${passengerId}`;
+                                badge.title = `乘客 ${passengerId}`;
+                            }
+                        } else {
+                            badge.textContent = `P${passengerId}`;
+                            badge.title = `乘客 ${passengerId}`;
+                        }
+
+                        downDiv.appendChild(badge);
                     });
 
                     waitingArea.appendChild(downDiv);

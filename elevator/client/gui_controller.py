@@ -30,16 +30,26 @@ class GUIController(ElevatorController):
         self.event_callback = callback
 
     def on_init(self, elevators: List[ProxyElevator], floors: List[ProxyFloor]) -> None:
-        """初始化 - GUI 接收初始配置"""
+        """初始化 - 立刻推送初始化消息给前端"""
         print(f"[GUI] 初始化: {len(elevators)} 部电梯，{len(floors)} 层楼")
+
+        # 构建初始化消息
+        message = {
+            "type": "init",
+            "data": {
+                "elevators_count": len(elevators),
+                "floors_count": len(floors),
+                "tick": 0
+            }
+        }
+
+        # 推送到事件队列（给 WebSocket 转发给前端）
+        if self.event_queue:
+            self.event_queue.put(message)
+
+        # 调用回调函数（备用）
         if self.event_callback:
-            self.event_callback({
-                "type": "init",
-                "data": {
-                    "elevators": len(elevators),
-                    "floors": len(floors)
-                }
-            })
+            self.event_callback(message)
 
     def on_passenger_call(self, passenger: ProxyPassenger, floor: ProxyFloor, direction: str) -> None:
         """乘客呼叫"""
@@ -85,6 +95,15 @@ class GUIController(ElevatorController):
                 "down_queue": list(floor.down_queue),
             })
 
+        # 转换events为字典格式（用于前端显示）
+        events_data = []
+        if events:
+            for event in events:
+                events_data.append({
+                    "type": event.type.value,
+                    "data": event.data
+                })
+
         # 构建消息
         message = {
             "type": "state_update",
@@ -92,6 +111,7 @@ class GUIController(ElevatorController):
                 "tick": tick,
                 "elevators": elevators_data,
                 "floors": floors_data,
+                "events": events_data,
             }
         }
 
